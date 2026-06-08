@@ -47,8 +47,10 @@ if not settings.auth_password_hash:
         settings.auth_password_hash = hash_password(raw_pw)
         logger.info("已从 SL_PASSWORD 环境变量加载密码")
     else:
-        logger.critical("❌ 未设置登录密码！请设置环境变量 SL_PASSWORD")
-        sys.exit(1)
+        logger.warning("⚠️ 未设置登录密码 — 将以 setup 模式启动，首次访问会引导设置密码")
+        settings._setup_mode = True
+else:
+    settings._setup_mode = False
 
 # ── 限流器 ──
 limiter = Limiter(key_func=get_remote_address, default_limits=["120/minute"])

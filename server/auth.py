@@ -55,3 +55,8 @@ async def require_auth(
     except JWTError:
         raise HTTPException(status_code=401, detail="令牌无效或已过期")
     return True
+
+
+def is_setup_needed() -> bool:
+    """是否首次运行（未设置密码）"""
+    return getattr(settings, '_setup_mode', False) or not settings.auth_password_hash
