@@ -171,8 +171,15 @@ if os.path.isdir(static_dir):
 
     @app.get("/{full_path:path}")
     async def spa_fallback(full_path: str):
-        """所有非 API 路径回退到 index.html"""
-        file_path = os.path.join(static_dir, full_path)
+        """所有非 API 路径回退到 index.html（防路径遍历）"""
+        # 禁止路径穿越
+        safe = os.path.normpath(full_path)
+        if safe.startswith("..") or os.path.isabs(safe):
+            return FileResponse(index_html)
+        file_path = os.path.join(static_dir, safe)
+        # 确保解析后在 static_dir 内
+        if not os.path.realpath(file_path).startswith(os.path.realpath(static_dir)):
+            return FileResponse(index_html)
         if os.path.isfile(file_path):
             return FileResponse(file_path)
         return FileResponse(index_html)
