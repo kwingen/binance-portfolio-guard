@@ -7,7 +7,7 @@ from jose import JWTError, jwt
 from sse_starlette.sse import EventSourceResponse
 
 from server.config import settings
-from server.auth import require_auth
+from server.auth import require_auth, is_revoked
 from server.models import EmergencyCloseRequest
 from server.services import state, on_event, close_all_positions
 
@@ -37,11 +37,14 @@ def _sse_handler(event: str, data: dict):
 on_event(_sse_handler)
 
 
-def _verify_token(token: str) -> bool:
+def _verify_sse_token(token: str) -> bool:
+    """SSE token 验证 — 接受普通 JWT 或专用 SSE token"""
     if not token:
         return False
     try:
-        jwt.decode(token, settings.secret_key, algorithms=["HS256"])
+        payload = jwt.decode(token, settings.secret_key, algorithms=["HS256"])
+        if is_revoked(payload.get("jti", "")):
+            return False
         return True
     except JWTError:
         return False
@@ -50,7 +53,7 @@ def _verify_token(token: str) -> bool:
 @router.get("/events")
 async def sse_stream(token: str = ""):
     """SSE 实时推送 — 用 query param 传 token（EventSource 不支持自定义 Header）"""
-    if not _verify_token(token):
+    if not _verify_sse_token(token):
         raise HTTPException(status_code=401, detail="无效或过期的令牌")
 
     queue: asyncio.Queue = asyncio.Queue(maxsize=256)

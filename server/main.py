@@ -49,7 +49,7 @@ if not settings.auth_password_hash:
             logger.critical(f"❌ SL_PASSWORD 不符合复杂度要求: {err}")
             sys.exit(1)
         settings.auth_password_hash = hash_password(raw_pw)
-        logger.info("已从 SL_PASSWORD 环境变量加载密码")
+        logger.info("已加载环境变量中的密码")
     else:
         # 生成一次性 setup token，仅在控制台显示
         setup_token = secrets.token_urlsafe(16)
@@ -102,11 +102,11 @@ app = FastAPI(
     redoc_url=None,
 )
 
-# ── CORS ──
+# ── CORS ── 严格限制，相同源访问（前后端同端口不需要跨域）
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=settings.cors_origins.split(","),
-    allow_credentials=True,
+    allow_origins=["http://localhost:8080", "http://127.0.0.1:8080"],
+    allow_credentials=False,  # 纯 JWT Bearer，不需要 cookie
     allow_methods=["GET", "POST", "OPTIONS"],
     allow_headers=["Authorization", "Content-Type"],
 )

@@ -37,6 +37,7 @@ def _save_config_to_file():
         os.makedirs(os.path.dirname(path), exist_ok=True)
         with open(path, "w", encoding="utf-8") as f:
             json.dump(cfg, f, indent=2, ensure_ascii=False)
+        os.chmod(path, 0o600)  # 仅 owner 可读写
     except Exception as e:
         logger.error(f"保存配置失败: {e}")
 
