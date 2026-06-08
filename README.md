@@ -20,36 +20,34 @@ binance_portfolio_sl.py                    核心止损库（纯 Python）
 
 ## 快速开始
 
-### 前置条件
-
-- Python 3.12+
-- Node.js 18+（仅构建前端时需要）
-- 币安合约 API Key（Enable Futures，**不勾选提现**，IP 白名单设为服务器公网 IP）
-
-### 1. 构建前端
+### Docker（推荐）
 
 ```bash
-cd client
-npm install && npm run build
-cd ..
+git clone https://github.com/kwingen/binance-portfolio-guard.git
+cd binance-portfolio-guard
+./deploy.sh
 ```
 
-### 2. 启动
+脚本自动检测环境：
+- **有 Docker** → `docker compose up -d`，一键启动
+- **无 Docker** → 自动创建 venv、安装依赖、构建前端、启动服务
+
+首次启动控制台输出一次性 **Setup Token**，浏览器打开 `http://localhost:8080`，输入 token + 设置密码即可。
+
+### 配置（可选）
 
 ```bash
-python -m uvicorn server.main:app --host 0.0.0.0 --port 8080
+# 环境变量方式
+export SL_PASSWORD="你的强密码"
+export SL_BINANCE_API_KEY="你的API_Key"
+export SL_BINANCE_API_SECRET="你的API_Secret"
+
+# 或创建 .env 文件
+cp .env.example .env
+# 编辑填入配置
 ```
 
-首次启动控制台输出一次性 Setup Token，打开浏览器输入 token + 设置管理员密码即可进入。
-
-### 3. 初始化流程
-
-1. 浏览器访问 `http://<服务器IP>:8080` → 自动跳转登录页
-2. 首次运行时输入控制台的 Setup Token + 设置密码
-3. 进入仪表盘，点 ⚙️ 齿轮填入币安 API Key
-4. DEMO 模式验证无误后，关闭 dry_run，启动监控
-
-**全程不需要编辑配置文件。**
+所有配置也可在 Web 面板中完成，无需手动编辑文件。
 
 ## 止损模式
 

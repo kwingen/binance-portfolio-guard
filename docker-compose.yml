@@ -1,0 +1,13 @@
+services:
+  app:
+    build: .
+    ports:
+      - "8080:8080"
+    restart: unless-stopped
+    environment:
+      - SL_PASSWORD
+      - SL_BINANCE_API_KEY
+      - SL_BINANCE_API_SECRET
+      - SL_BINANCE_PROXY
+    volumes:
+      - ./data:/app/data
