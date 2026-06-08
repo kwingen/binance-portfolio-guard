@@ -44,11 +44,23 @@ if not settings.auth_password_hash:
     # 尝试从环境变量 SL_PASSWORD 读取明文密码并哈希
     raw_pw = os.environ.get("SL_PASSWORD", "")
     if raw_pw:
+        ok, err = validate_password_strength(raw_pw)
+        if not ok:
+            logger.critical(f"❌ SL_PASSWORD 不符合复杂度要求: {err}")
+            sys.exit(1)
         settings.auth_password_hash = hash_password(raw_pw)
         logger.info("已从 SL_PASSWORD 环境变量加载密码")
     else:
-        logger.warning("⚠️ 未设置登录密码 — 将以 setup 模式启动，首次访问会引导设置密码")
+        # 生成一次性 setup token，仅在控制台显示
+        setup_token = secrets.token_urlsafe(16)
+        settings._setup_token = setup_token
         settings._setup_mode = True
+        logger.warning("=" * 60)
+        logger.warning("⚠️  首次运行 — 需要设置管理员密码")
+        logger.warning(f"    Setup Token: {setup_token}")
+        logger.warning("    此 token 仅在服务器控制台显示，切勿泄露")
+        logger.warning("    打开浏览器访问页面，输入此 token 完成初始化")
+        logger.warning("=" * 60)
 else:
     settings._setup_mode = False
 

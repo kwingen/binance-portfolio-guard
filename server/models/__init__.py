@@ -1,4 +1,4 @@
-from server.models.auth import LoginRequest, LoginResponse, PasswordChangeRequest
+from server.models.auth import LoginRequest, LoginResponse, PasswordChangeRequest, SetupRequest
 from server.models.trading import PositionItem, AccountInfo, DashboardStatus, EmergencyCloseRequest
 from server.models.settings import SettingsUpdate, SettingsInfo, MonitorControl
 

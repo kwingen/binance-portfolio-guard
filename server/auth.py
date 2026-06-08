@@ -26,6 +26,24 @@ def verify_password(plain: str, hashed: str) -> bool:
     return bcrypt.checkpw(plain.encode(), hashed.encode())
 
 
+def validate_password_strength(password: str) -> tuple[bool, str]:
+    """
+    密码复杂性校验。
+    返回 (是否通过, 错误信息)
+    """
+    if len(password) < 8:
+        return False, "密码至少 8 位"
+    if not any(c.isupper() for c in password):
+        return False, "需要至少一个大写字母"
+    if not any(c.islower() for c in password):
+        return False, "需要至少一个小写字母"
+    if not any(c.isdigit() for c in password):
+        return False, "需要至少一个数字"
+    if not any(c in "!@#$%^&*()-_=+[]{}|;:',.<>?/`~" for c in password):
+        return False, "需要至少一个特殊字符 (!@#$%^&* 等)"
+    return True, ""
+
+
 def create_access_token(expires_minutes: Optional[int] = None) -> str:
     expire_minutes = expires_minutes or settings.access_token_expire_minutes
     expire = datetime.now(timezone.utc) + timedelta(minutes=expire_minutes)
@@ -58,5 +76,7 @@ async def require_auth(
 
 
 def is_setup_needed() -> bool:
-    """是否首次运行（未设置密码）"""
-    return getattr(settings, '_setup_mode', False) or not settings.auth_password_hash
+    """是否首次运行（未设置密码 + 有有效 setup token）"""
+    return getattr(settings, '_setup_mode', False) or (
+        not settings.auth_password_hash and bool(getattr(settings, '_setup_token', ''))
+    )
