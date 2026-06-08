@@ -1,0 +1,12 @@
+{
+  "api_key": "你的币安API_KEY",
+  "api_secret": "你的币安API_SECRET",
+  "testnet": false,
+  "stop_loss_threshold": 5,
+  "threshold_type": "percent",
+  "check_interval_seconds": 5,
+  "dry_run": true,
+  "proxy": null,
+  "log_file": "binance_sl.log",
+  "log_level": "INFO"
+}

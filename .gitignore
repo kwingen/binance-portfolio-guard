@@ -1,0 +1,8 @@
+# Binance 止损脚本
+__pycache__/
+*.pyc
+*.log
+config.json
+.venv/
+*.swp
+.DS_Store

@@ -1,0 +1,21 @@
+[Unit]
+Description=Binance Portfolio Stop-Loss Dashboard
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=agent
+WorkingDirectory=/app/binance_portfolio_sl
+ExecStart=/app/.venv/bin/python /app/binance_portfolio_sl/dashboard_server.py /app/binance_portfolio_sl/config.json --host 0.0.0.0 --port 8080
+Restart=on-failure
+RestartSec=30
+StandardOutput=append:/app/binance_portfolio_sl/dashboard.log
+StandardError=append:/app/binance_portfolio_sl/dashboard.log
+
+# 安全加固
+NoNewPrivileges=yes
+PrivateTmp=yes
+
+[Install]
+WantedBy=multi-user.target
