@@ -66,6 +66,9 @@
       <PositionTable :positions="store.positions" />
     </div>
 
+    <!-- 开仓 -->
+    <TradePanel />
+
     <!-- 紧急清仓 -->
     <EmergencyButton />
 
@@ -87,6 +90,7 @@ import { useAuthStore } from '../stores/auth.js'
 import { useTradingStore } from '../stores/trading.js'
 import { api } from '../api/client.js'
 import PositionTable from './PositionTable.vue'
+import TradePanel from './TradePanel.vue'
 import EmergencyButton from './EmergencyButton.vue'
 import LogStream from './LogStream.vue'
 import SettingsModal from './SettingsModal.vue'

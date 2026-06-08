@@ -146,6 +146,41 @@ class BinanceFuturesClient:
         }
         return self._request("POST", "/fapi/v1/order", params=params, signed=True)
 
+    def place_order(self, symbol: str, side: str, order_type: str,
+                    quantity: float, price: float = None,
+                    reduce_only: bool = False) -> dict:
+        """
+        开仓下单
+        symbol: 交易对
+        side: 'BUY' 做多, 'SELL' 做空
+        order_type: 'MARKET' 或 'LIMIT'
+        quantity: 数量
+        price: 限价（LIMIT 订单必填）
+        """
+        params = {
+            "symbol": symbol,
+            "side": side,
+            "type": order_type,
+            "quantity": quantity,
+        }
+        if reduce_only:
+            params["reduceOnly"] = "true"
+        if order_type == "LIMIT":
+            if not price:
+                raise ValueError("限价单必须提供 price")
+            params["price"] = price
+            params["timeInForce"] = "GTC"
+        return self._request("POST", "/fapi/v1/order", params=params, signed=True)
+
+    def set_leverage(self, symbol: str, leverage: int) -> dict:
+        """设置杠杆倍数"""
+        return self._request("POST", "/fapi/v1/leverage",
+                             params={"symbol": symbol, "leverage": leverage}, signed=True)
+
+    def get_exchange_info(self) -> dict:
+        """获取交易规则"""
+        return self._request("GET", "/fapi/v1/exchangeInfo")
+
 
 # ── 止损逻辑 ────────────────────────────────────────
 
