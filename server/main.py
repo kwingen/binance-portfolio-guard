@@ -159,12 +159,27 @@ async def ready():
     }
 
 
-# ── 静态文件（前端）─
+# ── 静态文件（前端）── SPA fallback: 非 API 路径返回 index.html
 from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
 
 static_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "client", "dist")
+index_html = os.path.join(static_dir, "index.html")
+
 if os.path.isdir(static_dir):
-    app.mount("/", StaticFiles(directory=static_dir, html=True), name="static")
+    app.mount("/static", StaticFiles(directory=os.path.join(static_dir, "static")), name="static_assets")
+
+    @app.get("/{full_path:path}")
+    async def spa_fallback(full_path: str):
+        """所有非 API 路径回退到 index.html"""
+        file_path = os.path.join(static_dir, full_path)
+        if os.path.isfile(file_path):
+            return FileResponse(file_path)
+        return FileResponse(index_html)
+
+    @app.get("/")
+    async def root():
+        return FileResponse(index_html)
 
 
 # ── 命令行入口 ──
