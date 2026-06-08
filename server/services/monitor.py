@@ -106,6 +106,7 @@ class MonitorState:
         self.total_checks = 0
         self.client: Optional[BinanceFuturesClient] = None
         self.last_groups: list = []  # 分组快照
+        self.consecutive_failures: int = 0  # 连续失败次数（熔断用）
 
     def snapshot(self) -> dict:
         with self._lock:
@@ -283,9 +284,71 @@ def run_monitor_loop():
             time.sleep(settings.check_interval_seconds - 1)
 
         except Exception as e:
-            err_msg = f"{type(e).__name__}: {e}"
-            logger.error(f"监控异常: {err_msg}")
-            with state._lock:
-                state.last_error = err_msg
-            _emit("error", {"message": err_msg})
-            time.sleep(max(settings.check_interval_seconds // 2, 15))
+            # ── 重试机制 ──
+            last_error = e
+            for retry in range(1, 4):  # 再重试 3 次
+                wait = 2 ** retry  # 2s, 4s, 8s
+                logger.warning(f"监控异常，{wait}s 后第 {retry}/3 次重试: {type(e).__name__}")
+                time.sleep(wait)
+                try:
+                    positions = client.get_positions()
+                    active = get_active_positions(positions)
+                    total_pnl = calculate_total_pnl(positions)
+                    total_notional = calculate_total_notional(positions)
+                    total_entry = calculate_total_entry_value(positions)
+                    account_info = client.get_account()
+                    with state._lock:
+                        state.consecutive_failures = 0
+                        state.last_positions = active
+                        state.last_pnl = total_pnl
+                        state.last_notional = total_notional
+                        state.last_entry_value = total_entry
+                        state.last_account = {
+                            "totalWalletBalance": account_info.get("totalWalletBalance", "?"),
+                            "totalUnrealizedProfit": account_info.get("totalUnrealizedProfit", "?"),
+                            "totalMarginBalance": account_info.get("totalMarginBalance", "?"),
+                            "availableBalance": account_info.get("availableBalance", "?"),
+                        }
+                        state.last_check_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                        state.last_error = None
+                        state.total_checks += 1
+                    _emit("position_update", {
+                        "time": state.last_check_time,
+                        "positions": active,
+                        "total_pnl": round(total_pnl, 4),
+                        "total_pnl_formatted": f"{total_pnl:+.2f}",
+                        "total_notional": round(total_notional, 2),
+                        "total_entry_value": round(total_entry, 2),
+                        "threshold_type": settings.threshold_type,
+                        "groups": [],
+                        "ungrouped_count": 0,
+                    })
+                    logger.info(f"第 {retry} 次重试成功")
+                    break
+                except Exception as retry_err:
+                    last_error = retry_err
+            else:
+                # 所有重试均失败 → 记录并检查熔断
+                err_msg = f"{type(last_error).__name__}: {last_error}"
+                logger.error(f"监控异常（重试 3 次后仍失败）: {err_msg}")
+                with state._lock:
+                    state.consecutive_failures += 1
+                    state.last_error = err_msg
+                _emit("error", {"message": err_msg})
+
+                # ── 熔断保护 ──
+                if state.consecutive_failures >= 10:
+                    logger.critical("🔌 熔断触发: 连续 10 次失败，监控已暂停")
+                    with state._lock:
+                        state.monitoring = False
+                    _emit("circuit_breaker", {
+                        "reason": f"连续 {state.consecutive_failures} 次失败",
+                        "last_error": err_msg,
+                    })
+                    break
+                elif state.consecutive_failures >= 5:
+                    cooldown = 30
+                    logger.warning(f"⚠️ 连续 {state.consecutive_failures} 次失败，冷却 {cooldown}s")
+                    time.sleep(cooldown)
+                else:
+                    time.sleep(max(settings.check_interval_seconds // 2, 5))

@@ -6,6 +6,7 @@ Binance 总仓位止损 — FastAPI 后端
 """
 import os
 import sys
+import time
 import logging
 import threading
 import secrets
@@ -23,7 +24,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from server.config import settings
-from server.auth import hash_password, validate_password_strength
+from server.auth import hash_password, validate_password_strength, is_setup_needed
 from server.routes import routers
 from server.services import init_client, state, run_monitor_loop
 
@@ -91,7 +92,10 @@ async def lifespan(app: FastAPI):
     logger.info("监控线程已启动")
 
     yield
+    logger.info("正在关闭...")
     state.monitoring = False
+    time.sleep(8)  # 等待当前轮询完成
+    logger.info("已关闭")
 
 
 app = FastAPI(
@@ -136,6 +140,23 @@ for router in routers:
 @app.get("/health")
 async def health():
     return {"status": "ok", "monitoring": state.monitoring}
+
+
+@app.get("/ready")
+async def ready():
+    """就绪探测 — 用于 Docker/K8s readinessProbe"""
+    api_ok = False
+    if state.client and state.client.api_key != "demo":
+        try:
+            state.client.get_positions()
+            api_ok = True
+        except Exception:
+            pass
+    return {
+        "ready": True,
+        "api_connected": api_ok,
+        "setup_complete": not is_setup_needed(),
+    }
 
 
 # ── 静态文件（前端）─

@@ -36,8 +36,11 @@ class SettingsUpdate(BaseModel):
     def validate_threshold(self):
         if self.threshold_type and self.threshold_type not in ("usd", "percent"):
             raise ValueError("threshold_type 必须是 'usd' 或 'percent'")
-        if self.check_interval_seconds is not None and self.check_interval_seconds < 2:
-            raise ValueError("间隔不能小于 2 秒")
+        if self.check_interval_seconds is not None:
+            if self.check_interval_seconds < 2:
+                raise ValueError("间隔不能小于 2 秒")
+            if self.check_interval_seconds > 300:
+                raise ValueError("间隔不能大于 300 秒")
         return self
 
 
