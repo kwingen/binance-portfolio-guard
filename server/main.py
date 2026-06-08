@@ -65,7 +65,7 @@ else:
     settings._setup_mode = False
 
 # ── 限流器 ──
-limiter = Limiter(key_func=get_remote_address, default_limits=["120/minute"])
+limiter = Limiter(key_func=get_remote_address, default_limits=["240/minute"])
 
 
 @asynccontextmanager
