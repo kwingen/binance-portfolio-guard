@@ -284,13 +284,14 @@ def run_monitor_loop():
             time.sleep(settings.check_interval_seconds - 1)
 
         except Exception as e:
-            # ── 重试机制 ──
+            # ── 重试（短退避，不超过轮询间隔）──
             last_error = e
-            for retry in range(1, 4):  # 再重试 3 次
-                wait = 2 ** retry  # 2s, 4s, 8s
+            for retry in range(1, 4):
+                wait = retry  # 1s, 2s, 3s — 总计 6s，比 5s 轮询略长一个窗口
                 logger.warning(f"监控异常，{wait}s 后第 {retry}/3 次重试: {type(e).__name__}")
                 time.sleep(wait)
                 try:
+                    client = state.client
                     positions = client.get_positions()
                     active = get_active_positions(positions)
                     total_pnl = calculate_total_pnl(positions)
