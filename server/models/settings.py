@@ -30,6 +30,7 @@ class SettingsUpdate(BaseModel):
     dry_run: Optional[bool] = None
     auth_password: Optional[str] = None
     portfolios: Optional[List[PortfolioGroup]] = None
+    current_password: Optional[str] = None  # 修改 API Key 时需要
 
     @model_validator(mode="after")
     def validate_threshold(self):
@@ -41,9 +42,10 @@ class SettingsUpdate(BaseModel):
 
 
 class SettingsInfo(BaseModel):
-    api_key_masked: str = ""
+    api_key_masked: str = ""     # 废弃，永远空字符串（安全）
+    has_api_configured: bool = False  # 是否已配置 API
     testnet: bool = False
-    proxy: str = ""
+    proxy: str = ""              # 废弃，永远空字符串
     dry_run: bool = True
     check_interval_seconds: int = 5
     threshold_type: str = "percent"

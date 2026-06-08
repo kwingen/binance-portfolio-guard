@@ -7,6 +7,9 @@
         <div class="form-group"><label>API Key</label><input v-model="form.api_key" placeholder="币安 API Key"></div>
         <div class="form-group"><label>API Secret</label><input v-model="form.api_secret" type="password" placeholder="留空不修改"></div>
       </div>
+      <div class="form-row" v-if="form.api_key || form.api_secret">
+        <div class="form-group"><label>当前密码（验证身份）</label><input v-model="form.current_password" type="password" placeholder="修改 API 需输入密码"></div>
+      </div>
       <div class="form-row">
         <div class="form-group"><label>网络</label><select v-model="form.testnet"><option :value="false">主网</option><option :value="true">测试网</option></select></div>
         <div class="form-group"><label>代理</label><input v-model="form.proxy" placeholder="http://127.0.0.1:7890"></div>
@@ -70,7 +73,7 @@ const store = useTradingStore()
 
 const form = reactive({
   api_key: '', api_secret: '', testnet: false, proxy: '',
-  auth_password: '', check_interval_seconds: 5,
+  auth_password: '', current_password: '', check_interval_seconds: 5,
   stop_loss_threshold: 5, threshold_type: 'percent',
   portfolios: [],
 })
@@ -117,6 +120,7 @@ async function save() {
     const data = {}
     if (form.api_key && !form.api_key.includes('****')) data.api_key = form.api_key
     if (form.api_secret && !form.api_secret.includes('****')) data.api_secret = form.api_secret
+    if (form.current_password) data.current_password = form.current_password
     if (form.auth_password) data.auth_password = form.auth_password
     data.testnet = form.testnet
     data.proxy = form.proxy || null
