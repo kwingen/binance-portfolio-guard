@@ -38,6 +38,7 @@ class DashboardStatus(BaseModel):
     dry_run: bool = True
     testnet: bool = False
     has_api_key: bool = False
+    groups: List[dict] = []
 
 
 class EmergencyCloseRequest(BaseModel):

@@ -24,6 +24,7 @@ class Settings(BaseSettings):
     threshold_type: str = "percent"  # "usd" | "percent"
     check_interval_seconds: int = 5
     dry_run: bool = True
+    portfolios: list = []  # List[PortfolioGroup]  — 仓位分组
 
     # ── 服务器 ──
     host: str = "0.0.0.0"

@@ -23,6 +23,72 @@ from server.services.binance_client import (
 logger = logging.getLogger("monitor")
 
 
+# ── 仓位分组 ─────────────────────────────────────────
+
+def match_positions_to_groups(positions: list, groups: list):
+    """
+    将活跃仓位匹配到分组。
+    返回: {
+        "grouped": {group_index: [positions]},
+        "ungrouped": [positions],       # 未归属任何组的仓位
+        "groups": [group_dicts],        # 分组信息（含计算结果）
+    }
+    一个仓位只归属到第一个匹配的组。
+    """
+    grouped = {}
+    assigned = set()
+
+    for gi, group in enumerate(groups):
+        if not group.get("enabled", True):
+            continue
+        matched = []
+        for pos in positions:
+            symbol = pos.get("symbol", "")
+            amt = float(pos.get("positionAmt", 0))
+            direction = "long" if amt > 0 else "short"
+            pos_key = f"{symbol}_{direction}"
+
+            if pos_key in assigned:
+                continue
+
+            for gp in group.get("positions", []):
+                if gp["symbol"].upper() == symbol.upper() and gp["direction"] == direction:
+                    matched.append(pos)
+                    assigned.add(pos_key)
+                    break
+
+        if matched:
+            # 计算该组的汇总数据
+            entry_val = calculate_total_entry_value(matched)
+            pnl = calculate_total_pnl(matched)
+            notional = calculate_total_notional(matched)
+            th = get_effective_threshold(
+                group.get("stop_loss_threshold", 5),
+                group.get("threshold_type", "percent"),
+                entry_val,
+            )
+            grouped[gi] = {
+                "positions": matched,
+                "name": group.get("name", f"Group {gi+1}"),
+                "entry_value": entry_val,
+                "notional": notional,
+                "pnl": pnl,
+                "pnl_formatted": f"{pnl:+.2f}",
+                "threshold": th,
+                "threshold_formatted": f"{th:+.2f}",
+                "threshold_type": group.get("threshold_type", "percent"),
+                "threshold_pct": group.get("stop_loss_threshold", 5),
+                "triggered": pnl <= th if entry_val > 0 else False,
+            }
+
+    # 未分组仓位
+    ungrouped = [p for p in positions
+                 if f"{p.get('symbol','')}_{'long' if float(p.get('positionAmt',0))>0 else 'short'}"
+                 not in assigned]
+
+    return grouped, ungrouped, assigned
+
+
 class MonitorState:
     """线程安全的监控状态"""
 
@@ -39,6 +105,7 @@ class MonitorState:
         self.last_error: Optional[str] = None
         self.total_checks = 0
         self.client: Optional[BinanceFuturesClient] = None
+        self.last_groups: list = []  # 分组快照
 
     def snapshot(self) -> dict:
         with self._lock:
@@ -111,12 +178,17 @@ def run_monitor_loop():
             total_notional = calculate_total_notional(positions)
             total_entry = calculate_total_entry_value(positions)
             account_info = client.get_account()
-            effective = get_effective_threshold(
-                settings.stop_loss_threshold,
-                settings.threshold_type,
-                total_entry,
-            )
             now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+            # 全局阈值（用于未分组仓位）
+            global_threshold = get_effective_threshold(
+                settings.stop_loss_threshold, settings.threshold_type, total_entry,
+            )
+
+            # 仓位分组
+            portfolios = getattr(settings, 'portfolios', []) or []
+            group_results, ungrouped, _ = match_positions_to_groups(active, portfolios)
+            group_list = list(group_results.values())
 
             with state._lock:
                 state.last_positions = active
@@ -132,6 +204,7 @@ def run_monitor_loop():
                 state.last_check_time = now
                 state.last_error = None
                 state.total_checks += 1
+                state.last_groups = group_list
 
             _emit("position_update", {
                 "time": now,
@@ -141,33 +214,71 @@ def run_monitor_loop():
                 "total_notional": round(total_notional, 2),
                 "total_entry_value": round(total_entry, 2),
                 "threshold_type": settings.threshold_type,
-                "effective_threshold": round(effective, 2),
-                "effective_threshold_formatted": f"{effective:+.2f}",
+                "effective_threshold": round(global_threshold, 2),
+                "effective_threshold_formatted": f"{global_threshold:+.2f}",
+                "groups": group_list,
+                "ungrouped_count": len(ungrouped),
             })
 
-            # 止损判断
-            if active and total_pnl <= effective:
+            # ── 分组止损检查 ──
+            triggered_group = None
+            for gi, ginfo in group_results.items():
+                if ginfo["triggered"]:
+                    triggered_group = (gi, ginfo)
+                    break
+
+            if triggered_group:
+                gi, ginfo = triggered_group
                 dry = settings.dry_run
-                desc = f"总盈亏 {total_pnl:+.2f} ≤ {effective:+.2f}"
-                if settings.threshold_type == "percent":
-                    desc += f" (开仓成本 {total_entry:.2f} × {settings.stop_loss_threshold}%)"
                 logger.warning("=" * 60)
-                logger.warning(f"⚠️ 触发止损! {desc}")
+                logger.warning(f"⚠️ 分组 [{ginfo['name']}] 触发止损!")
+                logger.warning(f"   盈亏 {ginfo['pnl_formatted']} ≤ 阈值 {ginfo['threshold_formatted']}")
                 logger.warning("=" * 60)
 
-                result = close_all_positions(client, positions, dry_run=dry)
+                # 只平该组的仓位
+                group_positions = ginfo["positions"]
+                result = close_all_positions(client, group_positions, dry_run=dry)
                 with state._lock:
                     state.stop_loss_triggered = True
                     state.monitoring = False
 
                 _emit("stop_loss_triggered", {
-                    "total_pnl": round(total_pnl, 4),
-                    "total_pnl_formatted": f"{total_pnl:+.2f}",
-                    "threshold": effective,
-                    "threshold_formatted": f"{effective:+.2f}",
-                    "threshold_type": settings.threshold_type,
+                    "group_name": ginfo["name"],
+                    "total_pnl": round(ginfo["pnl"], 4),
+                    "total_pnl_formatted": ginfo["pnl_formatted"],
+                    "threshold": ginfo["threshold"],
+                    "threshold_formatted": ginfo["threshold_formatted"],
+                    "threshold_type": ginfo["threshold_type"],
                     "close_result": result,
                 })
+                logger.info(f"分组 [{ginfo['name']}] 止损完成，监控停止")
+
+            # ── 全局止损（仅检查未分组仓位）──
+            elif ungrouped and calculate_total_pnl(ungrouped) <= global_threshold:
+                # 用未分组仓位的 entry value 重算阈值
+                ug_entry = calculate_total_entry_value(ungrouped)
+                ug_threshold = get_effective_threshold(
+                    settings.stop_loss_threshold, settings.threshold_type, ug_entry,
+                )
+                ug_pnl = calculate_total_pnl(ungrouped)
+                if ug_pnl <= ug_threshold:
+                    dry = settings.dry_run
+                    logger.warning("=" * 60)
+                    logger.warning(f"⚠️ 全局止损! 未分组仓位盈亏 {ug_pnl:+.2f} ≤ {ug_threshold:+.2f}")
+                    logger.warning("=" * 60)
+                    result = close_all_positions(client, ungrouped, dry_run=dry)
+                    with state._lock:
+                        state.stop_loss_triggered = True
+                        state.monitoring = False
+                    _emit("stop_loss_triggered", {
+                        "group_name": "未分组",
+                        "total_pnl": round(ug_pnl, 4),
+                        "total_pnl_formatted": f"{ug_pnl:+.2f}",
+                        "threshold": ug_threshold,
+                        "threshold_formatted": f"{ug_threshold:+.2f}",
+                        "threshold_type": settings.threshold_type,
+                        "close_result": result,
+                    })
 
             time.sleep(settings.check_interval_seconds - 1)
 

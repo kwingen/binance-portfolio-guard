@@ -51,6 +51,7 @@ async def get_settings():
         threshold_type=settings.threshold_type,
         stop_loss_threshold=settings.stop_loss_threshold,
         has_auth_password=bool(settings.auth_password_hash),
+        portfolios=getattr(settings, 'portfolios', []),
     )
 
 
@@ -91,6 +92,10 @@ async def update_settings(data: SettingsUpdate):
     # 密码
     if data.auth_password:
         settings.auth_password_hash = hash_password(data.auth_password)
+
+    # 仓位分组
+    if data.portfolios is not None:
+        settings.portfolios = [p.model_dump() if hasattr(p, 'model_dump') else p for p in data.portfolios]
 
     # API 变更时重连
     if changed_api and settings.binance_api_key and settings.binance_api_key != "demo":

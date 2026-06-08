@@ -23,7 +23,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from server.config import settings
-from server.auth import hash_password
+from server.auth import hash_password, validate_password_strength
 from server.routes import routers
 from server.services import init_client, state, run_monitor_loop
 

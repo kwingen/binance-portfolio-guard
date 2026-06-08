@@ -1,6 +1,21 @@
 # ── 设置 ──
-from typing import Optional
+from typing import Optional, List
 from pydantic import BaseModel, Field, model_validator
+
+
+class PortfolioPosition(BaseModel):
+    """仓位组中的一个仓位定义"""
+    symbol: str = Field(..., min_length=1, max_length=20, description="交易对，如 BTCUSDT")
+    direction: str = Field(..., pattern="^(long|short)$", description="多或空")
+
+
+class PortfolioGroup(BaseModel):
+    """一个仓位分组，独立止损"""
+    name: str = Field(..., min_length=1, max_length=32, description="分组名称")
+    positions: List[PortfolioPosition] = Field(..., min_length=1, max_length=20)
+    stop_loss_threshold: float = Field(default=5.0, gt=0)
+    threshold_type: str = Field(default="percent", pattern="^(usd|percent)$")
+    enabled: bool = True
 
 
 class SettingsUpdate(BaseModel):
@@ -10,10 +25,11 @@ class SettingsUpdate(BaseModel):
     testnet: Optional[bool] = None
     proxy: Optional[str] = None
     stop_loss_threshold: Optional[float] = None
-    threshold_type: Optional[str] = None       # "usd" | "percent"
+    threshold_type: Optional[str] = None
     check_interval_seconds: Optional[int] = None
     dry_run: Optional[bool] = None
     auth_password: Optional[str] = None
+    portfolios: Optional[List[PortfolioGroup]] = None
 
     @model_validator(mode="after")
     def validate_threshold(self):
@@ -33,6 +49,7 @@ class SettingsInfo(BaseModel):
     threshold_type: str = "percent"
     stop_loss_threshold: float = 5.0
     has_auth_password: bool = False
+    portfolios: List[PortfolioGroup] = []
 
 
 class MonitorControl(BaseModel):
