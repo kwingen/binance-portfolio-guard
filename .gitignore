@@ -6,3 +6,6 @@ config.json
 .venv/
 *.swp
 .DS_Store
+node_modules/
+dist/
+.env

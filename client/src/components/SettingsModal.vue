@@ -1,0 +1,118 @@
+<template>
+  <div class="overlay" @click.self="$emit('close')">
+    <div class="modal">
+      <h2>⚙️ 设置 <button class="close-btn" @click="$emit('close')">×</button></h2>
+
+      <div class="form-row">
+        <div class="form-group"><label>API Key</label><input v-model="form.api_key" placeholder="币安 API Key"></div>
+        <div class="form-group"><label>API Secret</label><input v-model="form.api_secret" type="password" placeholder="留空不修改"></div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label>网络</label><select v-model="form.testnet"><option :value="false">主网</option><option :value="true">测试网</option></select></div>
+        <div class="form-group"><label>代理</label><input v-model="form.proxy" placeholder="http://127.0.0.1:7890"></div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label>访问密码</label><input v-model="form.auth_password" type="password" placeholder="留空不修改"></div>
+        <div class="form-group"><label>检查间隔 (秒)</label><input v-model.number="form.check_interval_seconds" type="number" min="2"></div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label>止损阈值</label><input v-model.number="form.stop_loss_threshold" type="number" step="0.1"></div>
+        <div class="form-group"><label>阈值类型</label>
+          <select v-model="form.threshold_type">
+            <option value="percent">% (开仓成本百分比)</option>
+            <option value="usd">USDT</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="form-actions">
+        <button class="btn btn-blue" @click="save" :disabled="saving">💾 {{ saving ? '保存中...' : '保存设置' }}</button>
+        <span class="status" :class="statusClass">{{ statusMsg }}</span>
+      </div>
+    </div>
+  </div>
+</template>
+
+<script setup>
+import { reactive, ref, onMounted } from 'vue'
+import { api } from '../api/client.js'
+import { useTradingStore } from '../stores/trading.js'
+
+const emit = defineEmits(['close', 'saved'])
+const store = useTradingStore()
+
+const form = reactive({
+  api_key: '', api_secret: '', testnet: false, proxy: '',
+  auth_password: '', check_interval_seconds: 5,
+  stop_loss_threshold: 5, threshold_type: 'percent',
+})
+
+const saving = ref(false)
+const statusMsg = ref('')
+const statusClass = ref('')
+
+onMounted(async () => {
+  const s = await api.getSettings()
+  form.api_key = s.api_key_masked
+  form.testnet = store.testnet
+  form.proxy = store.proxy || ''
+  form.check_interval_seconds = store.checkInterval
+  form.stop_loss_threshold = store.threshold
+  form.threshold_type = store.thresholdType
+})
+
+async function save() {
+  saving.value = true
+  statusMsg.value = '保存中...'
+  statusClass.value = ''
+  try {
+    const data = {}
+    if (form.api_key && !form.api_key.includes('****')) data.api_key = form.api_key
+    if (form.api_secret && !form.api_secret.includes('****')) data.api_secret = form.api_secret
+    if (form.auth_password) data.auth_password = form.auth_password
+    data.testnet = form.testnet
+    data.proxy = form.proxy || null
+    data.check_interval_seconds = form.check_interval_seconds
+    data.stop_loss_threshold = form.stop_loss_threshold
+    data.threshold_type = form.threshold_type
+
+    await api.saveSettings(data)
+    statusMsg.value = '✅ 已保存'
+    statusClass.value = 'ok'
+    setTimeout(() => emit('saved'), 500)
+  } catch (e) {
+    statusMsg.value = '❌ ' + e.message
+    statusClass.value = 'err'
+  }
+  saving.value = false
+  setTimeout(() => { statusMsg.value = '' }, 5000)
+}
+</script>
+
+<style scoped>
+.overlay {
+  position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+  background: rgba(0,0,0,0.7); z-index: 100;
+  display: flex; align-items: center; justify-content: center;
+}
+.modal {
+  background: var(--card-bg); border: 1px solid var(--border); border-radius: 12px;
+  padding: 24px; width: 100%; max-width: 520px; max-height: 85vh; overflow-y: auto;
+}
+.modal h2 { font-size: 18px; margin-bottom: 16px; display: flex; justify-content: space-between; align-items: center; }
+.close-btn { cursor: pointer; color: var(--text-dim); font-size: 24px; border: none; background: none; }
+.form-row { display: flex; gap: 10px; margin-bottom: 12px; }
+.form-group { flex: 1; }
+.form-group label { display: block; color: var(--text-dim); font-size: 12px; margin-bottom: 4px; }
+.form-group input, .form-group select {
+  width: 100%; background: var(--bg); border: 1px solid var(--border);
+  color: var(--text); padding: 8px 10px; border-radius: 6px; font-size: 13px;
+}
+.form-actions { display: flex; align-items: center; gap: 8px; margin-top: 12px; }
+.btn { padding: 8px 16px; border: none; border-radius: 6px; font-size: 13px; font-weight: 600; cursor: pointer; }
+.btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.btn-blue { background: var(--blue); color: #fff; }
+.status { font-size: 12px; }
+.status.ok { color: var(--green); }
+.status.err { color: var(--red); }
+</style>
