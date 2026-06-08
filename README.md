@@ -1,18 +1,18 @@
 # Binance Portfolio Guard
 
-币安合约全仓止损面板。支持**按仓位分组独立止损**，触及阈值一键清仓。
+币安合约止损面板 — 仓位分组独立止损、内置开仓下单、一键清仓。
 
 ![仪表盘](docs/screenshots/dashboard.png)
 
 ## 特性
 
-- **仓位分组独立止损**：BTC 多+ETH 空 一组 5% 止损，山寨币 一组 3% 止损，互不影响
-- **双模式**：USDT 绝对值 或 开仓成本百分比，止损线锚定入场价不漂移
-- **多空正确**：多仓 SELL / 空仓 BUY，自动撤销挂单后市价平仓
-- **零配置启动**：`./deploy.sh` 一键部署，首次访问 Web 引导设置密码
-- **安全**：bcrypt + JWT + Setup Token + 限流 + 密码复杂度强制
-- **5 秒轮询**：仅消耗 Binance API 5% 限额
-- **API 限额**：每轮 10 weight × 12 轮/分 = 120 weight/分（限额 2400 的 5%）
+- **仓位分组独立止损** — 每组独立阈值，触发只平该组
+- **双止损模式** — USDT 绝对值 / 开仓成本百分比，止损线锚定入场价
+- **内置开仓下单** — 市价/限价、做多/做空、杠杆 1~125x，不用切币安
+- **零配置启动** — `./deploy.sh` 一键部署，Web 引导初始化
+- **安全** — bcrypt + JWT(15min) + jti 黑名单 + Setup Token + API Key 密码二次验证
+- **鲁棒** — 指数退避重试 + 熔断保护 + `/ready` 健康探针
+- **API 限额** — 每轮 10 weight × 12 轮/分 = 120 weight/分（限额 2400 的 5%）
 
 ## 快速开始
 
@@ -22,7 +22,7 @@ cd binance-portfolio-guard
 ./deploy.sh
 ```
 
-脚本自动检测 Docker 环境。首次启动控制台输出 Setup Token，浏览器打开 `http://localhost:8080` 完成初始化。
+首次启动控制台输出 Setup Token，浏览器打开 `http://localhost:8080` 完成初始化。
 
 ![登录页](docs/screenshots/login.png)
 
@@ -30,49 +30,28 @@ cd binance-portfolio-guard
 
 | 仪表盘 | 设置面板 |
 |--------|----------|
-| 实时盈亏 / 持仓 / 分组卡片 / **开仓下单** / 紧急清仓 / 日志 | API Key / 代理 / 密码 / 仓位分组编辑器 |
+| 实时盈亏 / 持仓 / 分组卡片 / 开仓下单 / 紧急清仓 / 日志 | API Key / 代理 / 密码 / 仓位分组编辑器 |
 
 ![设置面板](docs/screenshots/settings.png)
 
-## 开仓下单
+## 止损逻辑
 
-仪表盘内置交易面板，支持：
-- 做多 / 做空
-- 市价单 / 限价单
-- 杠杆 1~125x
-- DEMO 模式不下单，仅返回确认
-
-## 止损模式
-
-### 全局止损（未分组仓位）
-
-| 模式 | 示例 | 计算 |
-|------|------|------|
-| USDT | -100 | 总盈亏 ≤ -100 止损 |
-| % | 5 | 总盈亏 ≤ -(开仓成本 × 5%) 止损 |
-
-### 仓位分组独立止损
-
-```
-📦 BTC+ETH 大仓位     5% 止损
-   仓位: BTCUSDT多, ETHUSDT空
-
-📦 山寨币组            3% 止损
-   仓位: XRPUSDT多, XLMUSDT多, SOLUSDT空
-```
-
-触发时**只平该组仓位**，其他组不受影响。
+- 多仓 → SELL | 空仓 → BUY
+- 触发前自动撤单，市价 `reduceOnly`
+- 分组止损锚定各组开仓成本，不随市价漂移
 
 ## 安全
 
 | 层级 | 措施 |
 |------|------|
 | 初始化 | 一次性 Setup Token，仅控制台可见 |
-| 密码 | bcrypt 哈希，8 位 + 大小写 + 数字 + 特殊字符 |
-| 会话 | JWT 60 分钟过期 |
-| 防御 | Setup 端点 5 次/分钟限流，常数时间比较 |
-| 运行时 | 非 root 用户，异常不泄露堆栈 |
-| 操作 | 紧急清仓需双击确认 |
+| 密码 | bcrypt，8 位 + 大小写 + 数字 + 特殊字符 |
+| 会话 | JWT 15 分钟过期 + jti 黑名单可吊销 |
+| API Key | GET 接口不返回任何 Key 信息，修改需密码验证 |
+| CORS | 仅允许 localhost:8080 |
+| 防御 | Setup 端点 5 次/分钟，API 240 次/分钟限流 |
+| 运行时 | 非 root，异常不泄露堆栈，config 文件 0600 权限 |
+| 鲁棒 | 1s/2s/3s 重试 + 连续 10 次失败熔断 + /ready 探针 |
 
 ## 部署
 
@@ -83,7 +62,6 @@ docker compose up -d
 # 环境变量
 export SL_PASSWORD="你的强密码"
 export SL_BINANCE_API_KEY="..."
-export SL_BINANCE_API_SECRET="..."
 
 # 手动
 pip install -r requirements.txt
@@ -93,14 +71,19 @@ python -m uvicorn server.main:app --host 0.0.0.0 --port 8080
 
 最低配置：1 vCPU / 256MB 内存，需固定公网 IP（Binance 白名单）。
 
+## 开发
+
+```bash
+# 测试
+pytest tests/ -v
+
+# 前端热重载
+cd client && npm run dev
+```
+
 ## 技术栈
 
-| 层 | 技术 |
-|----|------|
-| 后端 | FastAPI + Pydantic + uvicorn |
-| 前端 | Vue 3 + Vite + Pinia + Vue Router |
-| 实时 | SSE (Server-Sent Events) |
-| 构建 | Docker 多阶段 + alpine |
+FastAPI + Vue 3 + Vite + Pinia + SSE + Docker 多阶段构建
 
 ## License
 
