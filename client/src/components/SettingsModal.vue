@@ -43,6 +43,16 @@
         </div>
         <div class="form-group"></div>
       </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>模式</label>
+          <select v-model="form.dry_run" style="width:100%">
+            <option :value="true">🏗 演习 (DEMO) — 只看不下单</option>
+            <option :value="false">⚡ 实盘 — 执行真实交易</option>
+          </select>
+        </div>
+        <div class="form-group"></div>
+      </div>
 
       <!-- 仓位分组编辑器 -->
       <div style="margin-bottom:12px">
@@ -92,6 +102,7 @@ const form = reactive({
   new_password: '', confirm_password: '', password_old: '',
   current_password: '', check_interval_seconds: 5,
   stop_loss_threshold: 5, threshold_type: 'percent',
+  dry_run: true,
   portfolios: [],
 })
 
@@ -118,6 +129,7 @@ onMounted(async () => {
   form.check_interval_seconds = store.checkInterval
   form.stop_loss_threshold = store.threshold
   form.threshold_type = store.thresholdType
+  form.dry_run = store.dryRun
   form.portfolios = JSON.parse(JSON.stringify(s.portfolios || []))
 })
 
@@ -165,6 +177,7 @@ async function save() {
     data.check_interval_seconds = form.check_interval_seconds
     data.stop_loss_threshold = form.stop_loss_threshold
     data.threshold_type = form.threshold_type
+    data.dry_run = form.dry_run
     if (form.portfolios && form.portfolios.length) data.portfolios = form.portfolios
 
     await api.saveSettings(data)
