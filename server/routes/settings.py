@@ -120,6 +120,7 @@ async def update_settings(data: SettingsUpdate, request: Request):
     if data.portfolios is not None:
         settings.portfolios = [p.model_dump() if hasattr(p, 'model_dump') else p
                                for p in data.portfolios]
+        logger.info(f"仓位分组已更新: {len(settings.portfolios)} 组")
 
     # API 变更时重连
     if changed_api and settings.binance_api_key and settings.binance_api_key != "demo":
