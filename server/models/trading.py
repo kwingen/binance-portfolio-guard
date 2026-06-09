@@ -1,6 +1,6 @@
 # ── 交易 ──
 from typing import Optional, List, Any
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, Field
 
 
 class PositionItem(BaseModel):
@@ -43,18 +43,3 @@ class DashboardStatus(BaseModel):
 
 class EmergencyCloseRequest(BaseModel):
     confirm: bool = False
-
-
-class OrderRequest(BaseModel):
-    symbol: str = Field(..., min_length=1, max_length=20)
-    side: str = Field(..., pattern="^(BUY|SELL)$")        # BUY=做多, SELL=做空
-    order_type: str = Field(default="MARKET", pattern="^(MARKET|LIMIT)$")
-    quantity: float = Field(..., gt=0)
-    price: Optional[float] = None                           # LIMIT 订单必填
-    leverage: int = Field(default=1, ge=1, le=125)
-
-    @model_validator(mode="after")
-    def check_limit_price(self):
-        if self.order_type == "LIMIT" and self.price is None:
-            raise ValueError("限价单必须提供 price")
-        return self

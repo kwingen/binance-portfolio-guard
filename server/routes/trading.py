@@ -1,13 +1,11 @@
 """交易/持仓相关路由"""
-import logging
-from fastapi import APIRouter, HTTPException, Depends
+from fastapi import APIRouter, Depends
 
 from server.config import settings
 from server.auth import require_auth
-from server.models import DashboardStatus, OrderRequest
+from server.models import DashboardStatus
 from server.services import state, get_effective_threshold
 
-logger = logging.getLogger("trading")
 router = APIRouter(prefix="/api", tags=["交易"], dependencies=[Depends(require_auth)])
 
 
@@ -39,41 +37,3 @@ async def get_status():
         testnet=settings.binance_testnet,
         has_api_key=has_key,
     )
-
-
-@router.post("/order")
-async def place_order(req: OrderRequest):
-    """开仓下单"""
-    if not state.client:
-        raise HTTPException(500, "API 未初始化")
-
-    if settings.dry_run:
-        return {
-            "ok": True, "dry_run": True, "symbol": req.symbol,
-            "side": req.side, "type": req.order_type, "quantity": req.quantity,
-        }
-
-    try:
-        # 先设杠杆
-        state.client.set_leverage(req.symbol, req.leverage)
-
-        # 下单
-        result = state.client.place_order(
-            symbol=req.symbol.upper(),
-            side=req.side,
-            order_type=req.order_type,
-            quantity=req.quantity,
-            price=req.price if req.order_type == "LIMIT" else None,
-        )
-
-        if isinstance(result, dict) and result.get("code") and result["code"] < 0:
-            raise HTTPException(400, f"下单失败: {result.get('msg', '未知错误')}")
-
-        logger.info(f"下单成功: {req.side} {req.quantity} {req.symbol} @ {req.order_type}")
-        return {"ok": True, "order": result}
-
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"下单异常: {e}")
-        raise HTTPException(500, str(e))
