@@ -23,6 +23,20 @@
 
     <!-- 编辑模式 -->
     <div v-if="editing" class="group-editor">
+      <!-- 可用仓位 -->
+      <div style="margin-bottom:10px">
+        <label style="font-size:11px;color:var(--text-dim)">我的持仓（点击加入分组）</label>
+        <div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:4px">
+          <span v-for="(p, pi) in availablePositions" :key="pi"
+            class="pos-pick"
+            :class="{ picked: pickedPositions[positionKey(p)] }"
+            @click="togglePick(p)">
+            {{ p.symbol }} {{ parseFloat(p.positionAmt) > 0 ? '📈多' : '📉空' }}
+            <span :class="parseFloat(p.unRealizedProfit) >= 0 ? 'green' : 'red'">{{ fmtPnl(p.unRealizedProfit) }}</span>
+          </span>
+          <span v-if="!availablePositions.length" style="font-size:11px;color:var(--text-dim)">无可用仓位</span>
+        </div>
+      </div>
       <div v-for="(g, gi) in editGroups" :key="gi" class="edit-group">
         <div class="edit-row">
           <input v-model="g.name" placeholder="组名" class="small-input" style="width:100px">
@@ -31,16 +45,15 @@
             <option value="percent">%</option>
             <option value="usd">USDT</option>
           </select>
+          <button class="btn btn-xs btn-blue" @click="addPickedToGroup(gi)">+ 已选仓位</button>
           <button class="btn btn-xs btn-red" @click="editGroups.splice(gi,1)">✕</button>
         </div>
         <div class="edit-positions">
           <span v-for="(p, pi) in g.positions" :key="pi" class="pos-tag">
             {{ p.symbol }} {{ p.direction === 'long' ? '多' : '空' }}
-            <button @click="g.positions.splice(pi,1)" style="cursor:pointer;border:none;background:none;color:var(--red)">×</button>
+            <button @click="g.positions.splice(pi,1); unpickPos(p)" style="cursor:pointer;border:none;background:none;color:var(--red)">×</button>
           </span>
-          <input v-model="newSym[gi]" placeholder="BTCUSDT" class="tiny-input" style="width:75px">
-          <select v-model="newDir[gi]" class="tiny-select"><option value="long">多</option><option value="short">空</option></select>
-          <button class="btn btn-xs btn-blue" @click="addPos(gi)">+</button>
+          <span v-if="!g.positions.length" style="font-size:11px;color:var(--text-dim)">点击上方仓位加入</span>
         </div>
       </div>
       <button class="btn btn-xs btn-blue" @click="addGroup">+ 添加分组</button>
@@ -82,8 +95,7 @@ import PositionTable from './PositionTable.vue'
 const store = useTradingStore()
 const editing = ref(false)
 const editGroups = ref([])
-const newSym = ref({})
-const newDir = ref({})
+const pickedPositions = ref({})
 
 const totalCount = computed(() => store.positions.length)
 
@@ -111,15 +123,46 @@ watch(editing, async (val) => {
   }
 })
 
+const availablePositions = computed(() => {
+  // 不在任何编辑中分组里的仓位
+  const used = new Set()
+  editGroups.value.forEach(g => g.positions.forEach(p => {
+    used.add(p.symbol + '_' + p.direction)
+  }))
+  return store.positions.filter(p => {
+    const dir = parseFloat(p.positionAmt) > 0 ? 'long' : 'short'
+    return !used.has(p.symbol + '_' + dir)
+  })
+})
+
+function positionKey(pos) {
+  return pos.symbol + '_' + (parseFloat(pos.positionAmt) > 0 ? 'long' : 'short')
+}
+function fmtPnl(v) { const n = parseFloat(v); return isNaN(n) ? '0.00' : (n >= 0 ? '+' : '') + n.toFixed(2) }
+function togglePick(p) {
+  const k = positionKey(p)
+  pickedPositions.value = { ...pickedPositions.value, [k]: !pickedPositions.value[k] }
+}
+function unpickPos(p) {
+  const k = positionKey(p)
+  const newPicks = { ...pickedPositions.value }
+  delete newPicks[k]
+  pickedPositions.value = newPicks
+}
+function addPickedToGroup(gi) {
+  const dir = (pos) => parseFloat(pos.positionAmt) > 0 ? 'long' : 'short'
+  store.positions.filter(p => pickedPositions.value[positionKey(p)]).forEach(p => {
+    if (!editGroups.value[gi].positions.find(ep => ep.symbol === p.symbol && ep.direction === dir(p))) {
+      editGroups.value[gi].positions.push({ symbol: p.symbol, direction: dir(p) })
+    }
+  })
+  pickedPositions.value = {}
+}
+
 function addGroup() {
   editGroups.value.push({ name: 'Group ' + (editGroups.value.length + 1), positions: [], stop_loss_threshold: 5, threshold_type: 'percent', enabled: true })
 }
-function addPos(gi) {
-  const sym = (newSym.value[gi] || '').trim().toUpperCase()
-  if (!sym) return
-  editGroups.value[gi].positions.push({ symbol: sym, direction: newDir.value[gi] || 'long' })
-  newSym.value[gi] = ''
-}
+
 async function saveGroups() {
   await api.saveSettings({ portfolios: editGroups.value })
   await store.fetchStatus()
@@ -173,4 +216,11 @@ function cancelEdit() { editing.value = false }
 .btn-red { background: var(--red); color: #fff; }
 .btn-xs { padding: 4px 8px; border: none; border-radius: 4px; font-size: 11px; cursor: pointer; }
 .header-actions { display: flex; gap: 8px; }
+.pos-pick {
+  font-size: 11px; padding: 3px 8px; border-radius: 6px; cursor: pointer;
+  border: 1px solid var(--border); background: var(--card-bg);
+  display: inline-flex; align-items: center; gap: 4px; user-select: none;
+}
+.pos-pick:hover { border-color: var(--blue); }
+.pos-pick.picked { background: rgba(68,138,255,0.15); border-color: var(--blue); }
 </style>
