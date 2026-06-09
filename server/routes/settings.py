@@ -134,4 +134,9 @@ async def update_settings(data: SettingsUpdate, request: Request):
             raise HTTPException(400, f"API 连接失败: {e}")
 
     _save_config_to_file()
+
+    # 通知前端刷新
+    from server.services.monitor import _emit
+    _emit("config_updated", {"type": "settings"})
+
     return {"ok": True}
