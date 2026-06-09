@@ -12,28 +12,21 @@ const routes = [
 const router = createRouter({ history: createWebHistory(), routes })
 
 router.beforeEach(async (to, from, next) => {
-  const token = localStorage.getItem('access_token')
-
-  // 检查是否需要 setup（公开端点）
+  // 检查是否需要 setup
   if (to.name !== 'Setup') {
     try {
-      const res = await fetch('/api/auth/status')
+      const res = await fetch('/api/auth/status', { credentials: 'include' })
       const data = await res.json()
-      if (data.setup_needed) {
-        return next('/setup')
-      }
-    } catch (_) {
-      // 网络错误，允许继续（可能是后端未启动）
-    }
+      if (data.setup_needed) return next('/setup')
+    } catch (_) {}
   }
 
-  if (to.meta.requiresAuth && !token) {
+  if (to.meta.requiresAuth) {
+    try {
+      const res = await fetch('/api/auth/me', { credentials: 'include' })
+      if (res.ok) return next()
+    } catch (_) {}
     next('/login')
-  } else if (to.name === 'Login' && token) {
-    next('/')
-  } else if (to.name === 'Setup' && token) {
-    // 已登录就不需要再 setup
-    next('/')
   } else {
     next()
   }

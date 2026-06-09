@@ -89,8 +89,7 @@ async function handleSetup() {
   loading.value = true
   try {
     const res = await api.setup(password.value, setupToken.value.trim())
-    localStorage.setItem('access_token', res.access_token)
-    router.push('/')
+    if (res.ok) router.push('/')
   } catch (e) {
     error.value = e.message
   }

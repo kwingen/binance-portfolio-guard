@@ -2,7 +2,7 @@
 import json
 import asyncio
 import logging
-from fastapi import APIRouter, HTTPException, Depends
+from fastapi import APIRouter, HTTPException, Depends, Request
 from jose import JWTError, jwt
 from sse_starlette.sse import EventSourceResponse
 
@@ -51,9 +51,11 @@ def _verify_sse_token(token: str) -> bool:
 
 
 @router.get("/events")
-async def sse_stream(token: str = ""):
-    """SSE 实时推送 — 用 query param 传 token（EventSource 不支持自定义 Header）"""
-    if not _verify_sse_token(token):
+async def sse_stream(request: Request, token: str = ""):
+    """SSE 实时推送 — 优先从 Cookie 读 token，兼容 query param"""
+    cookie_token = request.cookies.get("sl_token", "")
+    effective_token = cookie_token or token
+    if not _verify_sse_token(effective_token):
         raise HTTPException(status_code=401, detail="无效或过期的令牌")
 
     queue: asyncio.Queue = asyncio.Queue(maxsize=256)

@@ -122,7 +122,7 @@ const monitorStateStyle = computed(() => ({
 // SSE
 function connectSSE() {
   if (sseSource) sseSource.close()
-  sseSource = new EventSource(`/api/events?token=${encodeURIComponent(localStorage.getItem('access_token') || '')}`)
+  sseSource = new EventSource('/api/events')
   sseSource.addEventListener('connected', () => store.fetchStatus())
   sseSource.addEventListener('position_update', (e) => {
     const d = JSON.parse(e.data)

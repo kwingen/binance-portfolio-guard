@@ -193,7 +193,8 @@ async function submit() {
   try {
     const res = await fetch('/api/order', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + localStorage.getItem('access_token') },
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
       body: JSON.stringify({ symbol: symbol.value.toUpperCase(), side: side.value, order_type: orderType.value, quantity: quantity.value, price: orderType.value === 'LIMIT' ? price.value : undefined, leverage: leverage.value })
     })
     const data = await res.json()

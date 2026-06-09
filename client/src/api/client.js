@@ -1,25 +1,23 @@
 const BASE = ''
 
-function token() { return localStorage.getItem('access_token') }
-
 async function request(method, path, body) {
   const headers = { 'Content-Type': 'application/json' }
-  const t = token()
-  if (t) headers['Authorization'] = `Bearer ${t}`
+  const csrf = getCsrfToken()
+  if (csrf) headers['X-CSRF-Token'] = csrf
 
   const res = await fetch(`${BASE}${path}`, {
     method, headers,
     body: body ? JSON.stringify(body) : undefined,
+    credentials: 'include',  // Cookie 自动携带
   })
 
-  if (res.status === 401) {
-    // 不要对登录/setup/status 端点做跳转（它们本来就不需要 token）
+  if (res.status === 401 || res.status === 403) {
     const isAuthEndpoint = path.startsWith('/api/auth/')
     if (!isAuthEndpoint) {
-      localStorage.removeItem('access_token')
       window.location.href = '/login'
     }
-    throw new Error(isAuthEndpoint ? data.detail || '认证失败' : '登录已过期')
+    const data = await res.json().catch(() => ({}))
+    throw new Error(data.detail || '认证失败')
   }
 
   const data = await res.json()
@@ -27,10 +25,16 @@ async function request(method, path, body) {
   return data
 }
 
+function getCsrfToken() {
+  return document.cookie.split('; ').find(r => r.startsWith('sl_csrf='))?.split('=')[1] || ''
+}
+
 export const api = {
   login: (password) => request('POST', '/api/auth/login', { password }),
+  logout: () => request('POST', '/api/auth/logout'),
   setup: (password, token) => request('POST', '/api/auth/setup', { password, setup_token: token }),
   getAuthStatus: () => request('GET', '/api/auth/status'),
+  getMe: () => request('GET', '/api/auth/me'),
   getStatus: () => request('GET', '/api/status'),
   getSettings: () => request('GET', '/api/settings'),
   saveSettings: (data) => request('POST', '/api/settings', data),
