@@ -1,11 +1,23 @@
 <template>
   <div class="card" style="margin-top:12px">
+    <!-- 全局止损线 -->
+    <div class="global-sl">
+      <div class="global-sl-row">
+        <span class="global-sl-label">全局止损</span>
+        <span class="global-sl-value">{{ store.effectiveThresholdFormatted }} USDT</span>
+        <span v-if="store.thresholdType === 'percent'" class="global-sl-meta">(开仓成本 × {{ store.threshold }}%)</span>
+        <span class="global-sl-mode" :style="{color: store.monitoring ? 'var(--green)' : 'var(--text-dim)'}">
+          {{ store.monitoring ? '🟢 监控中' : '⏸ 已停止' }}
+        </span>
+      </div>
+    </div>
+
     <div class="card-header">
       <h3>持仓 ({{ totalCount }})</h3>
       <div class="header-actions">
-        <button v-if="!editing" class="btn btn-xs btn-ghost" @click="editing = true">📦 管理分组</button>
-        <button v-else class="btn btn-xs btn-green" @click="saveGroups">💾 保存</button>
-        <button v-if="editing" class="btn btn-xs btn-ghost" @click="cancelEdit">取消</button>
+        <button v-if="!editing" class="btn btn-blue" @click="editing = true">📦 管理分组</button>
+        <button v-else class="btn btn-green" @click="saveGroups">💾 保存分组</button>
+        <button v-if="editing" class="btn btn-ghost" @click="cancelEdit">取消</button>
       </div>
     </div>
 
@@ -145,9 +157,20 @@ function cancelEdit() { editing.value = false }
 .green { color: var(--green); }
 .red { color: var(--red); }
 .empty-state { text-align: center; padding: 32px; color: var(--text-dim); }
-.btn-xs { padding: 3px 8px; border: none; border-radius: 4px; font-size: 11px; cursor: pointer; }
-.btn-green { background: var(--green); color: #000; }
+.global-sl {
+  background: var(--bg); border: 1px solid var(--border); border-radius: 8px;
+  padding: 8px 12px; margin-bottom: 10px;
+}
+.global-sl-row { display: flex; align-items: center; gap: 10px; }
+.global-sl-label { font-size: 12px; color: var(--text-dim); font-weight: 600; }
+.global-sl-value { font-size: 14px; font-weight: 700; color: var(--red); }
+.global-sl-meta { font-size: 11px; color: var(--text-dim); }
+.global-sl-mode { font-size: 12px; margin-left: auto; }
+.btn { padding: 8px 16px; border: none; border-radius: 6px; font-size: 13px; font-weight: 600; cursor: pointer; }
 .btn-blue { background: var(--blue); color: #fff; }
-.btn-red { background: var(--red); color: #fff; }
+.btn-green { background: var(--green); color: #000; }
 .btn-ghost { background: transparent; border: 1px solid var(--border); color: var(--text); }
+.btn-red { background: var(--red); color: #fff; }
+.btn-xs { padding: 4px 8px; border: none; border-radius: 4px; font-size: 11px; cursor: pointer; }
+.header-actions { display: flex; gap: 8px; }
 </style>
