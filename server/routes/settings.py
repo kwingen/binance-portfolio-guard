@@ -20,9 +20,8 @@ def audit_log(action: str, detail: str = "", request: Request = None):
 
 
 def _save_config_to_file():
-    path = settings.config_path
-    if not path or "example" in os.path.basename(path).lower():
-        return
+    """加密保存 API 密钥到持久化文件"""
+    from server.crypto import save_secure_config
     cfg = {
         "api_key": settings.binance_api_key,
         "api_secret": settings.binance_api_secret,
@@ -34,12 +33,10 @@ def _save_config_to_file():
         "dry_run": settings.dry_run,
     }
     try:
-        os.makedirs(os.path.dirname(path), exist_ok=True)
-        with open(path, "w", encoding="utf-8") as f:
-            json.dump(cfg, f, indent=2, ensure_ascii=False)
-        os.chmod(path, 0o600)  # 仅 owner 可读写
+        save_secure_config(cfg)
+        logger.info("加密配置已保存")
     except Exception as e:
-        logger.error(f"保存配置失败: {e}")
+        logger.error(f"保存加密配置失败: {e}")
 
 
 @router.get("", response_model=SettingsInfo)

@@ -25,11 +25,13 @@ COPY binance_portfolio_sl.py ./
 COPY --from=frontend /build/client/dist ./client/dist/
 
 # 权限
-RUN chown -R appuser:appuser /app
+RUN mkdir -p /app/data && chown -R appuser:appuser /app
 USER appuser
 
 EXPOSE 8080
 
 ENV PYTHONUNBUFFERED=1
+
+VOLUME ["/app/data"]
 
 CMD ["python", "-m", "uvicorn", "server.main:app", "--host", "0.0.0.0", "--port", "8080"]

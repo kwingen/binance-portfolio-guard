@@ -8,3 +8,4 @@ slowapi>=0.1
 python-multipart>=0.0.20
 sse-starlette>=3.0
 requests>=2.32
+cryptography>=44.0

@@ -65,6 +65,22 @@ if not settings.auth_password_hash:
 else:
     settings._setup_mode = False
 
+# ── 从加密文件加载持久化配置 ──
+from server.crypto import load_secure_config
+secure = load_secure_config()
+if secure:
+    if not settings.binance_api_key or settings.binance_api_key == "demo":
+        if secure.get("api_key"):
+            settings.binance_api_key = secure["api_key"]
+            settings.binance_api_secret = secure.get("api_secret", "")
+            settings.binance_testnet = secure.get("testnet", False)
+            settings.binance_proxy = secure.get("proxy")
+            settings.stop_loss_threshold = secure.get("stop_loss_threshold", 5)
+            settings.threshold_type = secure.get("threshold_type", "percent")
+            settings.check_interval_seconds = secure.get("check_interval_seconds", 5)
+            settings.dry_run = secure.get("dry_run", True)
+            logger.info("已从加密文件加载 API 配置")
+
 # ── 限流器 ──
 limiter = Limiter(key_func=get_remote_address, default_limits=["240/minute"])
 
