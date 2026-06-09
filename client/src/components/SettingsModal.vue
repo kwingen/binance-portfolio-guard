@@ -15,17 +15,33 @@
         <div class="form-group"><label>代理</label><input v-model="form.proxy" placeholder="http://127.0.0.1:7890"></div>
       </div>
       <div class="form-row">
-        <div class="form-group"><label>访问密码</label><input v-model="form.auth_password" type="password" placeholder="留空不修改"></div>
-        <div class="form-group"><label>检查间隔 (秒)</label><input v-model.number="form.check_interval_seconds" type="number" min="2"></div>
+        <div class="form-group"><label>新密码（留空不修改）</label><input v-model="form.new_password" type="password" placeholder="设置新密码"></div>
+        <div class="form-group"><label>确认新密码</label><input v-model="form.confirm_password" type="password" placeholder="再次输入"></div>
+      </div>
+      <div class="form-row" v-if="form.new_password || form.confirm_password">
+        <div class="form-group"><label>当前密码（修改密码需验证）</label><input v-model="form.password_old" type="password" placeholder="输入当前密码"></div>
+      </div>
+      <div v-if="form.new_password" class="strength-meter" style="margin-bottom:12px">
+        <div class="checks">
+          <span :class="pwChecks.length">最少 8 位</span>
+          <span :class="pwChecks.upper">大写字母</span>
+          <span :class="pwChecks.lower">小写字母</span>
+          <span :class="pwChecks.digit">数字</span>
+          <span :class="pwChecks.special">特殊字符</span>
+        </div>
       </div>
       <div class="form-row">
         <div class="form-group"><label>止损阈值</label><input v-model.number="form.stop_loss_threshold" type="number" step="0.1"></div>
+        <div class="form-group"><label>检查间隔 (秒)</label><input v-model.number="form.check_interval_seconds" type="number" min="2" max="300"></div>
+      </div>
+      <div class="form-row">
         <div class="form-group"><label>阈值类型</label>
           <select v-model="form.threshold_type">
             <option value="percent">% (开仓成本百分比)</option>
             <option value="usd">USDT</option>
           </select>
         </div>
+        <div class="form-group"></div>
       </div>
 
       <!-- 仓位分组编辑器 -->
@@ -64,7 +80,7 @@
 </template>
 
 <script setup>
-import { reactive, ref, onMounted } from 'vue'
+import { reactive, ref, computed, onMounted } from 'vue'
 import { api } from '../api/client.js'
 import { useTradingStore } from '../stores/trading.js'
 
@@ -73,10 +89,19 @@ const store = useTradingStore()
 
 const form = reactive({
   api_key: '', api_secret: '', testnet: false, proxy: '',
-  auth_password: '', current_password: '', check_interval_seconds: 5,
+  new_password: '', confirm_password: '', password_old: '',
+  current_password: '', check_interval_seconds: 5,
   stop_loss_threshold: 5, threshold_type: 'percent',
   portfolios: [],
 })
+
+const pwChecks = computed(() => ({
+  length: form.new_password.length >= 8,
+  upper: /[A-Z]/.test(form.new_password),
+  lower: /[a-z]/.test(form.new_password),
+  digit: /[0-9]/.test(form.new_password),
+  special: /[!@#$%^&*()\-_=+[\]{}|;:',.<>?/`~]/.test(form.new_password),
+}))
 
 const newPosSymbol = reactive({})
 const newPosDir = reactive({})
@@ -117,11 +142,24 @@ async function save() {
   statusMsg.value = '保存中...'
   statusClass.value = ''
   try {
+    // 改密码（独立的 API）
+    if (form.new_password) {
+      if (form.new_password !== form.confirm_password) {
+        throw new Error('两次输入的密码不一致')
+      }
+      if (!Object.values(pwChecks.value).every(Boolean)) {
+        throw new Error('密码不符合安全要求')
+      }
+      if (!form.password_old) {
+        throw new Error('请输入当前密码')
+      }
+      await api.changePassword(form.password_old, form.new_password)
+    }
+
     const data = {}
     if (form.api_key && !form.api_key.includes('****')) data.api_key = form.api_key
     if (form.api_secret && !form.api_secret.includes('****')) data.api_secret = form.api_secret
     if (form.current_password) data.current_password = form.current_password
-    if (form.auth_password) data.auth_password = form.auth_password
     data.testnet = form.testnet
     data.proxy = form.proxy || null
     data.check_interval_seconds = form.check_interval_seconds
@@ -132,6 +170,8 @@ async function save() {
     await api.saveSettings(data)
     statusMsg.value = '✅ 已保存'
     statusClass.value = 'ok'
+    // 清除密码字段
+    form.new_password = ''; form.confirm_password = ''; form.password_old = ''
     setTimeout(() => emit('saved'), 500)
   } catch (e) {
     statusMsg.value = '❌ ' + e.message
@@ -168,4 +208,10 @@ async function save() {
 .status { font-size: 12px; }
 .status.ok { color: var(--green); }
 .status.err { color: var(--red); }
+.strength-meter .checks { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px; }
+.strength-meter .checks span {
+  font-size: 10px; padding: 2px 6px; border-radius: 8px;
+  background: rgba(255,255,255,0.05); color: var(--text-dim);
+}
+.strength-meter .checks span.true { background: rgba(0,200,83,0.15); color: var(--green); }
 </style>
