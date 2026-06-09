@@ -13,9 +13,13 @@ async function request(method, path, body) {
   })
 
   if (res.status === 401) {
-    localStorage.removeItem('access_token')
-    window.location.href = '/login'
-    throw new Error('登录已过期')
+    // 不要对登录/setup/status 端点做跳转（它们本来就不需要 token）
+    const isAuthEndpoint = path.startsWith('/api/auth/')
+    if (!isAuthEndpoint) {
+      localStorage.removeItem('access_token')
+      window.location.href = '/login'
+    }
+    throw new Error(isAuthEndpoint ? data.detail || '认证失败' : '登录已过期')
   }
 
   const data = await res.json()
