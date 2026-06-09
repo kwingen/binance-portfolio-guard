@@ -5,6 +5,7 @@ from server.config import settings
 from server.auth import require_auth
 from server.models import DashboardStatus
 from server.services import state, get_effective_threshold
+from server.services.monitor import match_positions_to_groups
 
 router = APIRouter(prefix="/api", tags=["交易"], dependencies=[Depends(require_auth)])
 
@@ -17,6 +18,14 @@ async def get_status():
         snap["total_entry_value"],
     )
     has_key = bool(settings.binance_api_key and settings.binance_api_key != "demo")
+
+    # 分组计算（不依赖监控状态，每组请求实时计算）
+    portfolios = getattr(settings, 'portfolios', []) or []
+    groups_data = []
+    if portfolios and snap["positions"]:
+        group_results, _, _ = match_positions_to_groups(snap["positions"], portfolios)
+        groups_data = list(group_results.values())
+
     return DashboardStatus(
         monitoring=snap["monitoring"],
         stop_loss_triggered=snap["stop_loss_triggered"],
@@ -36,4 +45,5 @@ async def get_status():
         dry_run=settings.dry_run,
         testnet=settings.binance_testnet,
         has_api_key=has_key,
+        groups=groups_data,
     )
