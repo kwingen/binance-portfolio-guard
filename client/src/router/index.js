@@ -9,13 +9,17 @@ const routes = [
   { path: '/', name: 'Dashboard', component: DashboardView, meta: { requiresAuth: true } },
 ]
 
+function csrfHeader() {
+  const csrf = document.cookie.split('; ').find(r => r.startsWith('sl_csrf='))?.split('=')[1] || ''
+  return csrf ? { 'X-CSRF-Token': csrf } : {}
+}
+
 const router = createRouter({ history: createWebHistory(), routes })
 
 router.beforeEach(async (to, from, next) => {
-  // 检查是否需要 setup
   if (to.name !== 'Setup') {
     try {
-      const res = await fetch('/api/auth/status', { credentials: 'include' })
+      const res = await fetch('/api/auth/status', { credentials: 'include', headers: csrfHeader() })
       const data = await res.json()
       if (data.setup_needed) return next('/setup')
     } catch (_) {}
@@ -23,7 +27,7 @@ router.beforeEach(async (to, from, next) => {
 
   if (to.meta.requiresAuth) {
     try {
-      const res = await fetch('/api/auth/me', { credentials: 'include' })
+      const res = await fetch('/api/auth/me', { credentials: 'include', headers: csrfHeader() })
       if (res.ok) return next()
     } catch (_) {}
     next('/login')
