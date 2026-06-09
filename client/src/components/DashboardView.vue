@@ -112,6 +112,8 @@ function connectSSE() {
     store.totalNotional = d.total_notional
     store.totalEntryValue = d.total_entry_value
     store.lastCheckTime = d.time
+    store.groups = d.groups || []
+    store.effectiveThresholdFormatted = d.effective_threshold_formatted || store.effectiveThresholdFormatted
   })
   sseSource.addEventListener('stop_loss_triggered', () => {
     store.stopLossTriggered = true
