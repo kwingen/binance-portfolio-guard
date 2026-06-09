@@ -121,36 +121,45 @@ const maxDepth = computed(() => {
 })
 
 // ── 图表 ──
+const chartError = ref('')
 async function initChart() {
   if (!chartEl.value) return
   if (chart) { chart.remove(); chart = null }
-  const { createChart: cc, ColorType: ct } = await loadChartLib()
-  chart = cc(chartEl.value, {
-    layout: { background: { type: ct.Solid, color: '#1a1d27' }, textColor: '#888' },
-    grid: { vertLines: { color: '#2a2d37' }, horzLines: { color: '#2a2d37' } },
-    width: chartEl.value.clientWidth,
-    height: chartEl.value.clientHeight,
-    timeScale: { timeVisible: true },
-  })
-  candleSeries = chart.addCandlestickSeries({
-    upColor: '#00c853', downColor: '#ff1744', borderUpColor: '#00c853', borderDownColor: '#ff1744',
-    wickUpColor: '#00c853', wickDownColor: '#ff1744',
-  })
+  try {
+    const { createChart: cc, ColorType: ct } = await loadChartLib()
+    if (!chartEl.value) return
+    chart = cc(chartEl.value, {
+      layout: { background: { type: ct.Solid, color: '#1a1d27' }, textColor: '#888' },
+      grid: { vertLines: { color: '#2a2d37' }, horzLines: { color: '#2a2d37' } },
+      width: chartEl.value.clientWidth || 800,
+      height: chartEl.value.clientHeight || 400,
+      timeScale: { timeVisible: true },
+    })
+    candleSeries = chart.addCandlestickSeries({
+      upColor: '#00c853', downColor: '#ff1744', borderUpColor: '#00c853', borderDownColor: '#ff1744',
+      wickUpColor: '#00c853', wickDownColor: '#ff1744',
+    })
+  } catch (e) {
+    chartError.value = '图表加载失败: ' + e.message
+    console.error('Chart error:', e)
+  }
 }
 
 async function fetchKlines() {
   const sym = symbol.value.toUpperCase()
   const limit = interval.value === '1m' ? 200 : 100
   try {
-    const res = await fetch(`https://fapi.binance.com/fapi/v1/klines?symbol=${sym}&interval=${interval.value}&limit=${limit}`)
+    const res = await fetch(`/api/market/klines?symbol=${sym}&interval=${interval.value}&limit=${limit}`, { credentials: 'include' })
     const data = await res.json()
-    if (!candleSeries) return
+    if (!candleSeries || !data.length) return
     const ohlc = data.map(d => ({
       time: d[0] / 1000, open: +d[1], high: +d[2], low: +d[3], close: +d[4],
     }))
     candleSeries.setData(ohlc)
     chart?.timeScale().fitContent()
-  } catch (_) {}
+  } catch (e) {
+    console.error('Klines error:', e)
+  }
 }
 
 // ── WebSocket ──
