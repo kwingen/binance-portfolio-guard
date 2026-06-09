@@ -68,8 +68,18 @@
 
 <script setup>
 import { ref, watch, onMounted, onUnmounted, nextTick, computed } from 'vue'
-import { createChart, ColorType } from 'lightweight-charts'
 import { useTradingStore } from '../stores/trading.js'
+
+// lightweight-charts 动态导入避免模块初始化时序问题
+let createChartFn = null, ColorType = null
+async function loadChartLib() {
+  if (!createChartFn) {
+    const mod = await import('lightweight-charts')
+    createChartFn = mod.createChart
+    ColorType = mod.ColorType
+  }
+  return { createChart: createChartFn, ColorType }
+}
 
 const store = useTradingStore()
 
@@ -111,11 +121,12 @@ const maxDepth = computed(() => {
 })
 
 // ── 图表 ──
-function initChart() {
+async function initChart() {
   if (!chartEl.value) return
   if (chart) { chart.remove(); chart = null }
-  chart = createChart(chartEl.value, {
-    layout: { background: { type: ColorType.Solid, color: '#1a1d27' }, textColor: '#888' },
+  const { createChart: cc, ColorType: ct } = await loadChartLib()
+  chart = cc(chartEl.value, {
+    layout: { background: { type: ct.Solid, color: '#1a1d27' }, textColor: '#888' },
     grid: { vertLines: { color: '#2a2d37' }, horzLines: { color: '#2a2d37' } },
     width: chartEl.value.clientWidth,
     height: chartEl.value.clientHeight,
