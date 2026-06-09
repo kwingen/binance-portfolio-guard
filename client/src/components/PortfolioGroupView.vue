@@ -25,16 +25,16 @@
     <div v-if="editing" class="group-editor">
       <!-- 可用仓位 -->
       <div style="margin-bottom:10px">
-        <label style="font-size:11px;color:var(--text-dim)">我的持仓（点击加入分组）</label>
-        <div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:4px">
+        <label style="font-size:12px;color:var(--text-dim);font-weight:600">我的持仓（点击加入分组）</label>
+        <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:6px">
           <span v-for="(p, pi) in availablePositions" :key="pi"
             class="pos-pick"
             :class="{ picked: pickedPositions[positionKey(p)] }"
             @click="togglePick(p)">
-            {{ p.symbol }} {{ parseFloat(p.positionAmt) > 0 ? '📈多' : '📉空' }}
-            <span :class="parseFloat(p.unRealizedProfit) >= 0 ? 'green' : 'red'">{{ fmtPnl(p.unRealizedProfit) }}</span>
+            <strong>{{ p.symbol }}</strong> {{ parseFloat(p.positionAmt) > 0 ? '📈多' : '📉空' }}
+            <span class="pick-pnl" :class="parseFloat(p.unRealizedProfit) >= 0 ? 'green' : 'red'">{{ fmtPnl(p.unRealizedProfit) }}</span>
           </span>
-          <span v-if="!availablePositions.length" style="font-size:11px;color:var(--text-dim)">无可用仓位</span>
+          <span v-if="!availablePositions.length" style="font-size:12px;color:var(--text-dim)">无可用仓位</span>
         </div>
       </div>
       <div v-for="(g, gi) in editGroups" :key="gi" class="edit-group">
@@ -65,7 +65,11 @@
         <div class="group-header">
           <span class="group-name">📦 {{ g.name }}</span>
           <span :class="g.pnl >= 0 ? 'green' : 'red'">{{ g.pnl_formatted }}</span>
-          <span class="group-threshold">止损 {{ g.threshold_formatted }} USDT</span>
+          <span class="group-threshold">
+            止损
+            <template v-if="g.threshold_type === 'percent'">{{ g.threshold_pct }}% = </template>
+            {{ g.threshold_formatted }} USDT
+          </span>
         </div>
         <PositionTable :positions="g.positions" />
       </div>
@@ -217,10 +221,11 @@ function cancelEdit() { editing.value = false }
 .btn-xs { padding: 4px 8px; border: none; border-radius: 4px; font-size: 11px; cursor: pointer; }
 .header-actions { display: flex; gap: 8px; }
 .pos-pick {
-  font-size: 11px; padding: 3px 8px; border-radius: 6px; cursor: pointer;
+  font-size: 13px; padding: 6px 10px; border-radius: 6px; cursor: pointer;
   border: 1px solid var(--border); background: var(--card-bg);
-  display: inline-flex; align-items: center; gap: 4px; user-select: none;
+  display: inline-flex; align-items: center; gap: 6px; user-select: none;
 }
 .pos-pick:hover { border-color: var(--blue); }
 .pos-pick.picked { background: rgba(68,138,255,0.15); border-color: var(--blue); }
+.pick-pnl { font-size: 12px; font-weight: 600; }
 </style>
