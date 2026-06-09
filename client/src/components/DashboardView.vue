@@ -47,24 +47,8 @@
       </div>
     </div>
 
-    <!-- 仓位分组 -->
-    <div v-if="store.groups.length" class="grid" style="margin-top:12px">
-      <div v-for="(g, i) in store.groups" :key="i" class="card" :class="{ 'card-triggered': g.triggered }">
-        <h3>📦 {{ g.name }}
-          <span :style="{color: g.pnl >= 0 ? 'var(--green)' : 'var(--red)', float: 'right'}">{{ g.pnl_formatted }}</span>
-        </h3>
-        <div class="metric-row"><span>止损线</span><span>{{ g.threshold_formatted }} USDT ({{ g.threshold_type === 'percent' ? g.threshold_pct + '%' : '' }})</span></div>
-        <div class="metric-row"><span>开仓成本</span><span>{{ g.entry_value.toFixed(2) }} USDT</span></div>
-        <div class="metric-row"><span>仓位</span><span>{{ g.positions.map(p => p.symbol + (parseFloat(p.positionAmt)>0?'多':'空')).join(', ') }}</span></div>
-        <div v-if="g.triggered" style="color:var(--red);font-size:12px;margin-top:4px">⚠️ 已触发止损</div>
-      </div>
-    </div>
-
-    <!-- 持仓 -->
-    <div class="card" style="margin-top:12px">
-      <h3>持仓 ({{ store.positions.length }})</h3>
-      <PositionTable :positions="store.positions" />
-    </div>
+    <!-- 持仓（按分组） -->
+    <PortfolioGroupView />
 
     <!-- 紧急清仓 -->
     <EmergencyButton />
@@ -86,7 +70,7 @@ import { useRouter } from 'vue-router'
 import { useAuthStore } from '../stores/auth.js'
 import { useTradingStore } from '../stores/trading.js'
 import { api } from '../api/client.js'
-import PositionTable from './PositionTable.vue'
+import PortfolioGroupView from './PortfolioGroupView.vue'
 import EmergencyButton from './EmergencyButton.vue'
 import LogStream from './LogStream.vue'
 import SettingsModal from './SettingsModal.vue'

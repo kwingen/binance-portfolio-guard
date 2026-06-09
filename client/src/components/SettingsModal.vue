@@ -54,33 +54,6 @@
         <div class="form-group"></div>
       </div>
 
-      <!-- 仓位分组编辑器 -->
-      <div style="margin-bottom:12px">
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
-          <label style="color:var(--text-dim);font-size:12px">📦 仓位分组（独立止损）</label>
-          <button type="button" class="btn btn-xs btn-green" @click="addGroup">+ 添加分组</button>
-        </div>
-        <div v-for="(group, gi) in form.portfolios" :key="gi" style="border:1px solid var(--border);border-radius:6px;padding:10px;margin-bottom:8px">
-          <div class="form-row">
-            <div class="form-group"><label>名称</label><input v-model="group.name" style="font-size:12px"></div>
-            <div class="form-group"><label>止损</label><div style="display:flex;gap:4px"><input v-model.number="group.stop_loss_threshold" type="number" step="0.1" style="flex:1;font-size:12px"><select v-model="group.threshold_type" style="width:70px;font-size:11px"><option value="percent">%</option><option value="usd">USDT</option></select></div></div>
-          </div>
-          <div style="margin-bottom:6px">
-            <span style="font-size:11px;color:var(--text-dim)">仓位:</span>
-            <span v-for="(pos, pi) in group.positions" :key="pi" style="font-size:11px;background:var(--bg);padding:2px 6px;border-radius:4px;margin:0 2px">
-              {{ pos.symbol }} {{ pos.direction === 'long' ? '多' : '空' }}
-              <button type="button" @click="group.positions.splice(pi,1)" style="cursor:pointer;border:none;background:none;color:var(--red);font-size:11px">×</button>
-            </span>
-          </div>
-          <div class="form-row">
-            <div class="form-group"><input v-model="newPosSymbol[gi]" placeholder="交易对 (如 BTCUSDT)" style="font-size:11px"></div>
-            <div class="form-group"><select v-model="newPosDir[gi]" style="font-size:11px"><option value="long">多</option><option value="short">空</option></select></div>
-            <button type="button" class="btn btn-xs btn-blue" @click="addPosition(gi)">添加</button>
-          </div>
-          <button type="button" class="btn btn-xs btn-red" @click="form.portfolios.splice(gi,1)" style="margin-top:4px">删除分组</button>
-        </div>
-      </div>
-
       <div class="form-actions">
         <button class="btn btn-blue" @click="save" :disabled="saving">💾 {{ saving ? '保存中...' : '保存设置' }}</button>
         <span class="status" :class="statusClass">{{ statusMsg }}</span>
@@ -103,7 +76,6 @@ const form = reactive({
   current_password: '', check_interval_seconds: 5,
   stop_loss_threshold: 5, threshold_type: 'percent',
   dry_run: true,
-  portfolios: [],
 })
 
 const pwChecks = computed(() => ({
@@ -130,24 +102,7 @@ onMounted(async () => {
   form.stop_loss_threshold = store.threshold
   form.threshold_type = store.thresholdType
   form.dry_run = store.dryRun
-  form.portfolios = JSON.parse(JSON.stringify(s.portfolios || []))
 })
-
-function addGroup() {
-  form.portfolios.push({
-    name: 'Group ' + (form.portfolios.length + 1),
-    positions: [],
-    stop_loss_threshold: 5,
-    threshold_type: 'percent',
-    enabled: true,
-  })
-}
-function addPosition(gi) {
-  const sym = (newPosSymbol[gi] || '').trim().toUpperCase()
-  if (!sym) return
-  form.portfolios[gi].positions.push({ symbol: sym, direction: newPosDir[gi] || 'long' })
-  newPosSymbol[gi] = ''
-}
 
 async function save() {
   saving.value = true
@@ -178,7 +133,6 @@ async function save() {
     data.stop_loss_threshold = form.stop_loss_threshold
     data.threshold_type = form.threshold_type
     data.dry_run = form.dry_run
-    if (form.portfolios && form.portfolios.length) data.portfolios = form.portfolios
 
     await api.saveSettings(data)
     statusMsg.value = '✅ 已保存'
