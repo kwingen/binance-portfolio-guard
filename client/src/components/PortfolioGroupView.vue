@@ -39,24 +39,24 @@
       </div>
       <div v-for="(g, gi) in editGroups" :key="gi" class="edit-group">
         <div class="edit-row">
-          <input v-model="g.name" placeholder="组名" class="small-input" style="width:100px">
-          <input v-model.number="g.stop_loss_threshold" type="number" step="0.1" class="small-input" style="width:60px">
-          <select v-model="g.threshold_type" class="small-select">
+          <input v-model="g.name" placeholder="组名" class="med-input" style="width:100px">
+          <input v-model.number="g.stop_loss_threshold" type="number" step="0.1" class="med-input" style="width:65px">
+          <select v-model="g.threshold_type" class="med-select">
             <option value="percent">%</option>
             <option value="usd">USDT</option>
           </select>
-          <button class="btn btn-xs btn-blue" @click="addPickedToGroup(gi)">+ 已选仓位</button>
-          <button class="btn btn-xs btn-red" @click="editGroups.splice(gi,1)">✕</button>
+          <button class="btn btn-sm btn-blue" @click="addPickedToGroup(gi)">+ 已选仓位</button>
+          <button class="btn btn-sm btn-red" @click="editGroups.splice(gi,1)">✕</button>
         </div>
         <div class="edit-positions">
           <span v-for="(p, pi) in g.positions" :key="pi" class="pos-tag">
             {{ p.symbol }} {{ p.direction === 'long' ? '多' : '空' }}
-            <button @click="g.positions.splice(pi,1); unpickPos(p)" style="cursor:pointer;border:none;background:none;color:var(--red)">×</button>
+            <button @click="g.positions.splice(pi,1); unpickPos(p)" class="tag-remove">×</button>
           </span>
-          <span v-if="!g.positions.length" style="font-size:11px;color:var(--text-dim)">点击上方仓位加入</span>
+          <span v-if="!g.positions.length" style="font-size:12px;color:var(--text-dim)">点击上方仓位加入</span>
         </div>
       </div>
-      <button class="btn btn-xs btn-blue" @click="addGroup">+ 添加分组</button>
+      <button class="btn btn-blue" @click="addGroup">+ 添加分组</button>
     </div>
 
     <!-- 分组视图 -->
@@ -184,16 +184,17 @@ function cancelEdit() { editing.value = false }
 .edit-group { border: 1px solid var(--border); border-radius: 6px; padding: 8px; margin-bottom: 6px; }
 .edit-row { display: flex; gap: 4px; align-items: center; margin-bottom: 4px; }
 .edit-positions { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; }
-.small-input, .small-select, .tiny-input, .tiny-select {
+.med-input, .med-select {
   background: var(--bg); border: 1px solid var(--border); color: var(--text);
-  padding: 3px 6px; border-radius: 4px; font-size: 11px;
+  padding: 5px 8px; border-radius: 5px; font-size: 12px;
 }
-.tiny-input { width: 70px; }
-.tiny-select { width: 45px; }
 .pos-tag {
-  font-size: 11px; background: var(--card-bg); padding: 2px 6px; border-radius: 4px;
-  display: inline-flex; align-items: center; gap: 2px;
+  font-size: 12px; background: var(--card-bg); padding: 4px 8px; border-radius: 5px;
+  display: inline-flex; align-items: center; gap: 3px;
 }
+.tag-remove { cursor: pointer; border: none; background: none; color: var(--red); font-size: 14px; }
+.btn-sm { padding: 6px 12px; border: none; border-radius: 5px; font-size: 12px; cursor: pointer; }
+.btn { padding: 8px 16px; border: none; border-radius: 6px; font-size: 13px; font-weight: 600; cursor: pointer; }
 .group-block { margin-bottom: 8px; }
 .group-header {
   display: flex; align-items: center; gap: 10px; padding: 6px 0;
