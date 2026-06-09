@@ -6,6 +6,7 @@ from server.auth import require_auth
 from server.models import DashboardStatus
 from server.services import state, get_effective_threshold
 from server.services.monitor import match_positions_to_groups
+from server.services.binance_client import calculate_total_entry_value, calculate_total_pnl
 
 router = APIRouter(prefix="/api", tags=["交易"], dependencies=[Depends(require_auth)])
 
@@ -13,18 +14,22 @@ router = APIRouter(prefix="/api", tags=["交易"], dependencies=[Depends(require
 @router.get("/status", response_model=DashboardStatus)
 async def get_status():
     snap = state.snapshot()
-    effective = get_effective_threshold(
-        settings.stop_loss_threshold, settings.threshold_type,
-        snap["total_entry_value"],
-    )
+    positions = snap["positions"]
     has_key = bool(settings.binance_api_key and settings.binance_api_key != "demo")
 
-    # 分组计算（不依赖监控状态，每组请求实时计算）
+    # 分组计算
     portfolios = getattr(settings, 'portfolios', []) or []
     groups_data = []
-    if portfolios and snap["positions"]:
-        group_results, _, _ = match_positions_to_groups(snap["positions"], portfolios)
+    ungrouped = positions
+    if portfolios and positions:
+        group_results, ungrouped, _ = match_positions_to_groups(positions, portfolios)
         groups_data = list(group_results.values())
+
+    # 全局止损只算未分组仓位的开仓成本
+    ug_entry = calculate_total_entry_value(ungrouped)
+    effective = get_effective_threshold(
+        settings.stop_loss_threshold, settings.threshold_type, ug_entry,
+    )
 
     return DashboardStatus(
         monitoring=snap["monitoring"],
@@ -33,7 +38,7 @@ async def get_status():
         total_pnl=round(snap["total_pnl"], 4),
         total_pnl_formatted=f"{snap['total_pnl']:+.2f}",
         total_notional=round(snap["total_notional"], 2),
-        total_entry_value=round(snap["total_entry_value"], 2),
+        total_entry_value=round(ug_entry, 2),
         account=snap["account"],
         last_check_time=snap["last_check_time"],
         last_error=snap["last_error"],

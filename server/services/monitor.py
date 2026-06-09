@@ -181,15 +181,16 @@ def run_monitor_loop():
             account_info = client.get_account()
             now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
-            # 全局阈值（用于未分组仓位）
-            global_threshold = get_effective_threshold(
-                settings.stop_loss_threshold, settings.threshold_type, total_entry,
-            )
-
             # 仓位分组
             portfolios = getattr(settings, 'portfolios', []) or []
             group_results, ungrouped, _ = match_positions_to_groups(active, portfolios)
             group_list = list(group_results.values())
+
+            # 全局止损只算未分组仓位
+            ug_entry = calculate_total_entry_value(ungrouped)
+            global_threshold = get_effective_threshold(
+                settings.stop_loss_threshold, settings.threshold_type, ug_entry,
+            )
 
             with state._lock:
                 state.last_positions = active
