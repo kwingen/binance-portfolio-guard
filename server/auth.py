@@ -62,9 +62,11 @@ def _extract_token(request: Request) -> Optional[str]:
     """优先从 cookie 读，再从 Authorization header 读"""
     token = request.cookies.get(COOKIE_NAME)
     if token:
-        # CSRF 防护：有 cookie 时必须带自定义 header
-        if request.headers.get("X-CSRF-Token") != request.cookies.get(CSRF_COOKIE):
-            raise HTTPException(403, "CSRF 验证失败")
+        # CSRF 防护：有 cookie 时必须带自定义 header（登录等端点除外）
+        path = request.url.path
+        if path not in ("/api/auth/login", "/api/auth/setup", "/api/auth/status"):
+            if request.headers.get("X-CSRF-Token") != request.cookies.get(CSRF_COOKIE):
+                raise HTTPException(403, "CSRF 验证失败")
         return token
     # 回退到 Bearer header
     auth = request.headers.get("Authorization", "")
