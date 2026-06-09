@@ -65,7 +65,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '../stores/auth.js'
 import { useTradingStore } from '../stores/trading.js'
@@ -169,6 +169,10 @@ onMounted(async () => {
   thresholdTypeInput.value = store.thresholdType
   connectSSE()
   pollTimer = setInterval(() => store.fetchStatus(), 30000)
+
+  // 当 store 被 SSE 更新时同步顶部输入框
+  watch(() => store.threshold, v => { thresholdInput.value = v })
+  watch(() => store.thresholdType, v => { thresholdTypeInput.value = v })
 })
 onUnmounted(() => {
   if (sseSource) sseSource.close()
