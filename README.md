@@ -1,18 +1,18 @@
 # Binance Portfolio Guard
 
-币安合约止损面板 — 仓位分组独立止损、内置开仓下单、一键清仓。
+币安合约止损面板 — 仓位分组独立止损，一键清仓。
 
 ![仪表盘](docs/screenshots/dashboard.png)
 
 ## 特性
 
-- **仓位分组独立止损** — 每组独立阈值，触发只平该组
+- **仓位分组独立止损** — 每组独立阈值，触发只平该组，从持仓列表点选添加
 - **双止损模式** — USDT 绝对值 / 开仓成本百分比，止损线锚定入场价
-- **内置开仓下单** — 市价/限价、做多/做空、杠杆 1~125x，不用切币安
+- **API Key 加密持久化** — 保存后重启不丢失
 - **零配置启动** — `./deploy.sh` 一键部署，Web 引导初始化
-- **安全** — bcrypt + JWT(15min) + jti 黑名单 + Setup Token + API Key 密码二次验证
-- **鲁棒** — 指数退避重试 + 熔断保护 + `/ready` 健康探针
-- **API 限额** — 每轮 10 weight × 12 轮/分 = 120 weight/分（限额 2400 的 5%）
+- **安全** — httpOnly Cookie + CSRF + bcrypt + JWT(15min) + Setup Token + 密码复杂度强制
+- **重试与熔断** — API 失败自动重试，连续 10 次失败暂停监控
+- **25 个单元测试** — 覆盖核心计算/密码/分组匹配
 
 ## 快速开始
 
@@ -30,7 +30,7 @@ cd binance-portfolio-guard
 
 | 仪表盘 | 设置面板 |
 |--------|----------|
-| 实时盈亏 / 持仓 / 分组卡片 / 开仓下单 / 紧急清仓 / 日志 | API Key / 代理 / 密码 / 仓位分组编辑器 |
+| 实时盈亏 / 持仓（按分组排列） / 紧急清仓 / 日志 | API Key / 代理 / 密码 / 模式切换 |
 
 ![设置面板](docs/screenshots/settings.png)
 
@@ -39,19 +39,18 @@ cd binance-portfolio-guard
 - 多仓 → SELL | 空仓 → BUY
 - 触发前自动撤单，市价 `reduceOnly`
 - 分组止损锚定各组开仓成本，不随市价漂移
+- 分组管理在持仓卡片右上角，点选持仓加入
 
 ## 安全
 
 | 层级 | 措施 |
 |------|------|
-| 初始化 | 一次性 Setup Token，仅控制台可见 |
 | 密码 | bcrypt，8 位 + 大小写 + 数字 + 特殊字符 |
-| 会话 | JWT 15 分钟过期 + jti 黑名单可吊销 |
-| API Key | GET 接口不返回任何 Key 信息，修改需密码验证 |
-| CORS | 仅允许 localhost:8080 |
-| 防御 | Setup 端点 5 次/分钟，API 240 次/分钟限流 |
-| 运行时 | 非 root，异常不泄露堆栈，config 文件 0600 权限 |
-| 鲁棒 | 1s/2s/3s 重试 + 连续 10 次失败熔断 + /ready 探针 |
+| 会话 | httpOnly Secure SameSite Cookie + CSRF 双验证 |
+| JWT | 15 分钟过期 + jti 黑名单 |
+| API Key | 加密持久化 + 修改需密码验证 |
+| 防御 | Setup 5 次/分钟，API 240 次/分钟限流 |
+| 运行时 | 非 root，异常不泄露堆栈 |
 
 ## 部署
 
@@ -74,11 +73,8 @@ python -m uvicorn server.main:app --host 0.0.0.0 --port 8080
 ## 开发
 
 ```bash
-# 测试
-pytest tests/ -v
-
-# 前端热重载
-cd client && npm run dev
+pytest tests/ -v          # 25 个单元测试
+cd client && npm run dev   # 前端热重载
 ```
 
 ## 技术栈
